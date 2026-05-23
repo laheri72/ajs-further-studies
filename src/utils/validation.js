@@ -14,8 +14,10 @@ export const registrationSchema = z
     fullName: trimmed.min(2, 'Full name is required'),
     qualifications: z.array(z.string()).min(1, 'Please select at least one qualification'),
     otherQual: trimmed.optional().default(''),
+    nextQualificationIntent: z.string().optional().default(''),
     hasThoughtAboutNext: z.boolean({ required_error: 'Please choose Yes or No' }),
     stage: z.string().optional().default(''),
+    needsLeavesThisYear: z.boolean().nullable().optional(),
     requiresAssistance: z.boolean().nullable().optional(),
     degreeApplying: trimmed.optional().default(''),
     institution: trimmed.optional().default(''),
@@ -36,7 +38,11 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && !value.stage) {
+    const planning = value.nextQualificationIntent === 'planning' || (!value.nextQualificationIntent && value.hasThoughtAboutNext);
+    const alreadyPursuing = value.nextQualificationIntent === 'already_pursuing';
+    const needsProgrammeDetails = planning || alreadyPursuing;
+
+    if (planning && !value.stage) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['stage'],
@@ -44,7 +50,15 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && value.degreeApplying.trim().length < 2) {
+    if (alreadyPursuing && value.needsLeavesThisYear === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['needsLeavesThisYear'],
+        message: 'Please choose whether leaves are needed this academic year',
+      });
+    }
+
+    if (needsProgrammeDetails && value.degreeApplying.trim().length < 2) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['degreeApplying'],
@@ -52,7 +66,7 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && value.studyCommitment.trim().length < 2) {
+    if (needsProgrammeDetails && value.studyCommitment.trim().length < 2) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['studyCommitment'],
@@ -60,7 +74,7 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && value.examMonths.length === 0) {
+    if (needsProgrammeDetails && value.examMonths.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['examMonths'],
@@ -68,7 +82,7 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && value.clashWithMiqaat === null) {
+    if (needsProgrammeDetails && value.clashWithMiqaat === null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['clashWithMiqaat'],
@@ -76,7 +90,7 @@ export const registrationSchema = z
       });
     }
 
-    if (!value.hasThoughtAboutNext && value.requiresAssistance === null) {
+    if (value.nextQualificationIntent === 'not_now' && value.requiresAssistance === null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['requiresAssistance'],
@@ -84,7 +98,7 @@ export const registrationSchema = z
       });
     }
 
-    if (value.hasThoughtAboutNext && value.clashWithMiqaat && value.clashEvents.length === 0 && !value.clashDetails?.trim()) {
+    if (needsProgrammeDetails && value.clashWithMiqaat && value.clashEvents.length === 0 && !value.clashDetails?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['clashEvents'],
@@ -114,7 +128,7 @@ export function validateRegistrationStep(step, values) {
     ['trNo', 'fullName'],
     ['qualifications', 'otherQual'],
     ['hasThoughtAboutNext', 'stage', 'requiresAssistance'],
-    ['degreeApplying', 'studyCommitment', 'razaDays', 'examMonths', 'clashWithMiqaat', 'clashEvents'],
+    ['degreeApplying', 'studyCommitment', 'razaDays', 'examMonths', 'clashWithMiqaat', 'clashEvents', 'needsLeavesThisYear'],
     [],
   ][step];
 

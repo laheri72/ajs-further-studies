@@ -22,7 +22,14 @@ service cloud.firestore {
     }
 
     function validStatus(value) {
-      return value in ['pending', 'approved'];
+      return value in ['pending', 'on-hold', 'approved'];
+    }
+
+    function isAutoApprovedStudent(data) {
+      return (data.nextQualificationIntent == 'not_now'
+          && data.requiresAssistance == false)
+        || (data.nextQualificationIntent == 'already_pursuing'
+          && data.needsLeavesThisYear == false);
     }
 
     function isStudentEmail() {
@@ -44,17 +51,20 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/trIndex/$(trNo)).data.uid == request.auth.uid;
     }
 
-    function studentOwnedKeysOnly() {
+    function studentResubmissionKeysOnly() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
+          'status',
           'uid',
           'email',
           'trNo',
           'fullName',
           'qualifications',
           'otherQual',
+          'nextQualificationIntent',
           'hasThoughtAboutNext',
           'stage',
+          'needsLeavesThisYear',
           'requiresAssistance',
           'degreeApplying',
           'institution',
@@ -65,6 +75,7 @@ service cloud.firestore {
           'clashEvents',
           'clashDetails',
           'additionalNotes',
+          'submittedAt',
           'updatedAt'
         ]);
     }
@@ -111,23 +122,34 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && request.resource.data.email == request.auth.token.email
         && trBelongsToRequestUser(request.resource.data.trNo)
-        && request.resource.data.status == 'pending'
+        && (request.resource.data.status == 'pending'
+          || (request.resource.data.status == 'approved'
+            && isAutoApprovedStudent(request.resource.data)))
         && request.resource.data.adminNotes == ''
         && !('reviewedAt' in request.resource.data)
         && !('reviewedBy' in request.resource.data);
 
       allow update: if isOwner(uid)
         && isStudentEmail()
-        && resource.data.status == 'pending'
+        && (resource.data.status == 'on-hold'
+          || (resource.data.status == 'pending' && !('submittedAt' in resource.data)))
+        && (request.resource.data.status == 'pending'
+          || (request.resource.data.status == 'approved'
+            && isAutoApprovedStudent(request.resource.data)))
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
         && trBelongsToRequestUser(request.resource.data.trNo)
-        && studentOwnedKeysOnly();
+        && studentResubmissionKeysOnly();
 
       allow update: if isAdmin()
         && validStatus(request.resource.data.status)
+        && (request.resource.data.status != 'on-hold'
+          || (request.resource.data.adminNotes is string
+            && request.resource.data.adminNotes.size() > 0))
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'adminNotes', 'reviewedAt', 'reviewedBy', 'updatedAt']);
 
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
   }
 }

@@ -1,4 +1,4 @@
-import { ADMIN_OWNED_FIELDS, EMPTY_REGISTRATION, FORM_VERSION } from '../data/constants';
+import { ADMIN_OWNED_FIELDS, EMPTY_REGISTRATION, FORM_VERSION, NEXT_QUALIFICATION_OPTIONS } from '../data/constants';
 
 export const STUDENT_EMAIL_DOMAIN = '@jameasaifiyah.edu';
 export const STUDENT_EMAIL_PATTERN = /^[0-9]{5}@jameasaifiyah\.edu$/i;
@@ -64,7 +64,28 @@ export function studentWritablePayload(values, profile, user) {
 }
 
 export function canStudentEdit(record) {
-  return !record || record.status === 'pending';
+  return !record || record.status === 'on-hold' || (record.status === 'pending' && !record.submittedAt);
+}
+
+export function nextQualificationLabel(values) {
+  const option = NEXT_QUALIFICATION_OPTIONS.find((item) => item.value === values.nextQualificationIntent);
+  if (option) return option.shortLabel;
+  if (values.hasThoughtAboutNext === true) return 'Planning Next Qualification';
+  if (values.hasThoughtAboutNext === false) return 'Not Planning Now';
+  return '';
+}
+
+export function needsProgrammeDetails(values) {
+  if (values.nextQualificationIntent === 'planning') return true;
+  if (values.nextQualificationIntent === 'already_pursuing') return true;
+  return !values.nextQualificationIntent && values.hasThoughtAboutNext === true;
+}
+
+export function isAutoApprovedRegistration(values) {
+  return (
+    (values.nextQualificationIntent === 'not_now' && values.requiresAssistance === false) ||
+    (values.nextQualificationIntent === 'already_pursuing' && values.needsLeavesThisYear === false)
+  );
 }
 
 export function filterStudents(students, query, status) {
@@ -89,7 +110,8 @@ export function filterStudents(students, query, status) {
 export function statsForStudents(students) {
   return {
     total: students.length,
-    pending: students.filter((student) => student.status !== 'approved').length,
+    pending: students.filter((student) => student.status === 'pending').length,
+    onHold: students.filter((student) => student.status === 'on-hold').length,
     approved: students.filter((student) => student.status === 'approved').length,
     clashes: students.filter((student) => student.clashWithMiqaat).length,
   };

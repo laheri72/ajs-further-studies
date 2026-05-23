@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -11,7 +12,13 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { isValidStudentEmail, nameFromGoogleUser, studentWritablePayload, trFromStudentEmail } from '../utils/registration';
+import {
+  isAutoApprovedRegistration,
+  isValidStudentEmail,
+  nameFromGoogleUser,
+  studentWritablePayload,
+  trFromStudentEmail,
+} from '../utils/registration';
 
 export async function getProfile(uid) {
   const snapshot = await getDoc(doc(db, 'users', uid));
@@ -63,10 +70,14 @@ export async function getStudentRecord(uid) {
 export async function saveStudentRegistration(user, profile, values, existingRecord) {
   const studentRef = doc(db, 'students', user.uid);
   const payload = studentWritablePayload(values, profile, user);
+  const nextStatus = isAutoApprovedRegistration(payload) ? 'approved' : 'pending';
+  const completingUnsubmittedPending = existingRecord?.status === 'pending' && !existingRecord.submittedAt;
 
   if (existingRecord) {
     await updateDoc(studentRef, {
       ...payload,
+      ...(existingRecord.status === 'on-hold' || completingUnsubmittedPending ? { status: nextStatus } : {}),
+      ...(completingUnsubmittedPending ? { submittedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     });
     return;
@@ -74,7 +85,7 @@ export async function saveStudentRegistration(user, profile, values, existingRec
 
   await setDoc(studentRef, {
     ...payload,
-    status: 'pending',
+    status: nextStatus,
     adminNotes: '',
     submittedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -100,4 +111,8 @@ export async function updateStudentReview(uid, reviewer, status, adminNotes) {
     reviewedBy: reviewer.email,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function clearStudentRegistration(uid) {
+  await deleteDoc(doc(db, 'students', uid));
 }

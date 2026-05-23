@@ -631,6 +631,12 @@ h3 {
   color: var(--success);
 }
 
+.status-badge.on-hold {
+  border: 1px solid rgba(215, 154, 99, 0.36);
+  background: rgba(215, 154, 99, 0.12);
+  color: #d79a63;
+}
+
 .status-badge.neutral {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.055);
@@ -761,6 +767,47 @@ select option {
   text-align: left;
 }
 
+.sub-question {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  border-left: 2px solid rgba(200, 168, 78, 0.5);
+  border-radius: var(--radius-md);
+  background: rgba(200, 168, 78, 0.045);
+  padding: 16px;
+}
+
+.sub-question-header {
+  display: grid;
+  gap: 4px;
+}
+
+.sub-question-header span {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sub-question-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sub-choice {
+  border-color: rgba(120, 191, 138, 0.22);
+  background: rgba(120, 191, 138, 0.045);
+}
+
+.choice-card.sub-choice:hover,
+.choice-card.sub-choice.selected {
+  border-color: rgba(120, 191, 138, 0.55);
+  background: rgba(120, 191, 138, 0.1);
+}
+
 .choice-card:hover,
 .choice-card.selected {
   border-color: var(--gold);
@@ -852,6 +899,12 @@ select option {
   margin-top: 24px;
 }
 
+.modal-save-actions,
+.modal-danger-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .review-list {
   display: grid;
 }
@@ -880,7 +933,7 @@ select option {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -911,6 +964,10 @@ select option {
 
 .stat-card.warning strong {
   color: var(--warning);
+}
+
+.stat-card.hold strong {
+  color: #d79a63;
 }
 
 .stat-card.success strong {
@@ -1042,7 +1099,12 @@ tr:hover td {
 }
 
 .modal-choice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 18px;
+}
+
+.registration-note {
+  margin-bottom: 16px;
 }
 
 .loading-screen {
@@ -1164,5 +1226,11 @@ tr:hover td {
   .form-actions button {
     width: 100%;
     justify-content: center;
+  }
+
+  .modal-save-actions,
+  .modal-danger-actions {
+    width: 100%;
+    flex-direction: column;
   }
 }

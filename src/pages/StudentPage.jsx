@@ -9,6 +9,7 @@ import {
   EMPTY_REGISTRATION,
   MIQAAT_EVENTS,
   MONTHS,
+  NEXT_QUALIFICATION_OPTIONS,
   QUALIFICATIONS,
   STAGES,
   STUDENT_STEPS,
@@ -18,8 +19,11 @@ import { getStudentRecord, saveStudentRegistration } from '../services/firestore
 import {
   canStudentEdit,
   clearDraft,
+  isAutoApprovedRegistration,
   isValidStudentEmail,
   nameFromGoogleUser,
+  needsProgrammeDetails,
+  nextQualificationLabel,
   readDraft,
   saveDraft,
   trFromStudentEmail,
@@ -107,12 +111,12 @@ function StudentDashboard() {
     const stepErrors = validateRegistrationStep(step, values);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length) return;
-    setStep((current) => (values.hasThoughtAboutNext === false && current === 2 ? 4 : Math.min(current + 1, 4)));
+    setStep((current) => (!needsProgrammeDetails(values) && current === 2 ? 4 : Math.min(current + 1, 4)));
   }
 
   function prevStep() {
     setErrors({});
-    setStep((current) => (values.hasThoughtAboutNext === false && current === 4 ? 2 : Math.max(current - 1, 0)));
+    setStep((current) => (!needsProgrammeDetails(values) && current === 4 ? 2 : Math.max(current - 1, 0)));
   }
 
   async function submit() {
@@ -127,7 +131,11 @@ function StudentDashboard() {
       const nextRecord = await getStudentRecord(user.uid);
       setRecord(nextRecord);
       clearDraft(user.uid);
-      setMessage('Your registration has been saved. The Idara can now review the latest details.');
+      setMessage(
+        nextRecord?.status === 'approved'
+          ? 'Your registration has been automatically approved because no Idara assistance or leave support is needed.'
+          : 'Your registration has been submitted. The Idara can now review the latest details.',
+      );
     } catch (err) {
       setMessage(err.message || 'Unable to save registration.');
     } finally {
@@ -204,11 +212,18 @@ function DashboardTabs({ activeTab, record, onChange }) {
 
 function StatusLanding({ record, values, stageLabels, onOpenRegistration }) {
   const approved = record?.status === 'approved';
+  const onHold = record?.status === 'on-hold';
   const pending = record?.status === 'pending';
-  const statusTitle = approved ? 'Approved' : pending ? 'Pending Review' : 'Registration Not Submitted';
+  const statusTitle = approved
+    ? 'Approved'
+    : onHold
+      ? 'On Hold'
+      : pending
+        ? 'Pending Review'
+        : 'Registration Not Submitted';
 
   return (
-    <section className={`status-landing panel ${approved ? 'approved' : pending ? 'pending' : ''}`}>
+    <section className={`status-landing panel ${approved ? 'approved' : onHold ? 'on-hold' : pending ? 'pending' : ''}`}>
       <div className="status-hero">
         <div className="status-copy">
           <p className="eyebrow">Raza Status</p>
@@ -216,9 +231,11 @@ function StatusLanding({ record, values, stageLabels, onOpenRegistration }) {
           <p>
             {approved
               ? 'This is a preliminary raza with regard to your programme. Final raza to attend examinations will be on JHS.'
-              : pending
-                ? 'Your details are recorded and waiting for Idara review. Please visit the Idara if you are close to examinations.'
-                : 'Begin the registration so the Idara can review your further-studies details.'}
+              : onHold
+                ? 'The Idara needs clarification before continuing the review. Please read the note, update your registration, and resubmit.'
+                : pending
+                  ? 'Your details are recorded and waiting for Idara review. Please visit the Idara if you are close to examinations.'
+                  : 'Begin the registration so the Idara can review your further-studies details.'}
           </p>
         </div>
         <StatusBadge status={record?.status || 'not submitted'} />
@@ -244,10 +261,15 @@ function StatusLanding({ record, values, stageLabels, onOpenRegistration }) {
             <Lock size={16} />
             Your approved registration is locked. You can view the submitted details in the registration tab.
           </div>
-        ) : (
+        ) : onHold ? (
           <button className="gold-button" type="button" onClick={onOpenRegistration}>
             <FileText size={16} />
-            {pending ? 'View or Update Registration' : 'Start Registration'}
+            Update and Resubmit
+          </button>
+        ) : (
+          <button className={pending ? 'outline-button' : 'gold-button'} type="button" onClick={onOpenRegistration}>
+            <FileText size={16} />
+            {pending ? 'View Submitted Registration' : 'Start Registration'}
           </button>
         )}
       </div>
@@ -280,18 +302,25 @@ function RegistrationTab({
   toggleArray,
 }) {
   if (!editable) {
+    const approved = record?.status === 'approved';
+    const pending = record?.status === 'pending';
+
     return (
       <section className="panel read-only approved-summary-panel">
         <div className="section-heading">
-          <p className="eyebrow">Approved Registration</p>
-          <h2>Submitted Details</h2>
-          <p>Your registration has been approved by the Idara and is now read-only.</p>
+          <p className="eyebrow">{approved ? 'Approved Registration' : 'Student Registration'}</p>
+          <h2>{approved ? 'Submitted Details' : 'Under Review'}</h2>
+          <p>
+            {approved
+              ? 'Your registration has been approved by the Idara and is now read-only.'
+              : 'Your registration is pending Idara review. If clarification is needed, this page will reopen for edits.'}
+          </p>
         </div>
-        <div className="notice success">
-          <Lock size={16} /> Approved records cannot be edited from the student portal.
+        <div className={`notice ${approved ? 'success' : 'warning'}`}>
+          <Lock size={16} /> {approved ? 'Approved records cannot be edited from the student portal.' : 'Pending records are locked while the Idara reviews them.'}
         </div>
         <RegistrationSummary values={values} stageLabels={stageLabels} />
-        {record?.adminNotes ? (
+        {pending && record?.adminNotes ? (
           <div className="admin-note standalone">
             <span>Notes from Idara</span>
             <p>{record.adminNotes}</p>
@@ -304,10 +333,20 @@ function RegistrationTab({
   return (
     <>
       <div className="section-heading registration-heading">
-        <p className="eyebrow">Student Registration</p>
-        <h2>{record ? 'Update Registration' : 'Further Studies Registration'}</h2>
-        <p>Complete each section carefully. Your draft is saved locally on this device.</p>
+        <p className="eyebrow">{record?.status === 'on-hold' ? 'Clarification Needed' : 'Student Registration'}</p>
+        <h2>{record?.status === 'on-hold' ? 'Update and Resubmit' : 'Further Studies Registration'}</h2>
+        <p>
+          {record?.status === 'on-hold'
+            ? 'Please update the requested details and resubmit so the Idara can continue the review.'
+            : 'Complete each section carefully. Your draft is saved locally on this device.'}
+        </p>
       </div>
+      {record?.status === 'on-hold' && record?.adminNotes ? (
+        <div className="notice warning registration-note">
+          <FileText size={16} />
+          {record.adminNotes}
+        </div>
+      ) : null}
       <Stepper step={step} />
       <section className="panel">
         <AnimatePresence mode="wait">
@@ -341,7 +380,7 @@ function RegistrationTab({
           ) : (
             <button className="gold-button" type="button" onClick={submit} disabled={saving}>
               <Save size={16} />
-              {saving ? 'Saving...' : record ? 'Save Updates' : 'Submit Registration'}
+              {saving ? 'Saving...' : record?.status === 'on-hold' ? 'Resubmit Updates' : 'Submit Registration'}
             </button>
           )}
         </div>
@@ -356,8 +395,9 @@ function RegistrationSummary({ values, stageLabels }) {
     ['Full Name', values.fullName],
     ['Qualifications', values.qualifications.join(', ')],
     ['Other Qualification', values.otherQual],
-    ['Pursuing Next Qualification', values.hasThoughtAboutNext ? 'Yes' : 'No'],
+    ['Next Qualification', nextQualificationLabel(values)],
     ['Stage', stageLabels[values.stage]],
+    ['Leaves Needed This Year', values.needsLeavesThisYear === null ? '' : values.needsLeavesThisYear ? 'Yes' : 'No'],
     ['Requires Idara Assistance', values.requiresAssistance === null ? '' : values.requiresAssistance ? 'Yes' : 'No'],
     ['Degree / Programme', values.degreeApplying],
     ['Institution', values.institution],
@@ -396,6 +436,10 @@ function Stepper({ step }) {
 }
 
 function StepContent({ step, values, errors, stageLabels, editable, patch, toggleArray }) {
+  const selectedNextQualification =
+    values.nextQualificationIntent ||
+    (values.hasThoughtAboutNext === true ? 'planning' : values.hasThoughtAboutNext === false ? 'not_now' : '');
+
   if (step === 0) {
     return (
       <div className="form-section">
@@ -454,56 +498,70 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
     return (
       <div className="form-section">
         <h2>Next Qualification</h2>
-        <p className="muted">Have you thought about acquiring the next qualification?</p>
-        <div className="split-choice">
-          {[true, false].map((answer) => (
+        <p className="muted">What is your current plan for further qualification?</p>
+        <div className="stack">
+          {NEXT_QUALIFICATION_OPTIONS.map((option) => (
             <button
-              className={`choice-card ${values.hasThoughtAboutNext === answer ? 'selected' : ''}`}
+              className={`choice-card left ${selectedNextQualification === option.value ? 'selected' : ''}`}
               type="button"
               disabled={!editable}
               onClick={() =>
                 patch({
-                  hasThoughtAboutNext: answer,
-                  stage: answer ? values.stage : '',
-                  requiresAssistance: answer ? null : values.requiresAssistance,
+                  nextQualificationIntent: option.value,
+                  hasThoughtAboutNext: option.continuesWorkflow,
+                  stage: option.value === 'planning' ? values.stage : '',
+                  needsLeavesThisYear: option.value === 'already_pursuing' ? values.needsLeavesThisYear : null,
+                  requiresAssistance: option.value === 'not_now' ? values.requiresAssistance : null,
                 })
               }
-              key={String(answer)}
+              key={option.value}
             >
-              {answer ? 'Yes' : 'No'}
+              {option.label}
             </button>
           ))}
         </div>
         {errors.hasThoughtAboutNext ? <span className="field-error">{errors.hasThoughtAboutNext}</span> : null}
-        {values.hasThoughtAboutNext === true ? (
-          <div className="stack">
-            {STAGES.map((stage) => (
-              <button
-                className={`choice-card left ${values.stage === stage.value ? 'selected' : ''}`}
-                type="button"
-                disabled={!editable}
-                onClick={() => patch({ stage: stage.value })}
-                key={stage.value}
-              >
-                {stage.label}
-              </button>
-            ))}
+        {values.nextQualificationIntent === 'planning' || (!values.nextQualificationIntent && values.hasThoughtAboutNext === true) ? (
+          <div className="sub-question">
+            <div className="sub-question-header">
+              <span>Next Steps</span>
+              <p>Select the option that best describes what you need from Idara.</p>
+            </div>
+            <div className="stack">
+              {STAGES.map((stage) => (
+                <button
+                  className={`choice-card left sub-choice ${values.stage === stage.value ? 'selected' : ''}`}
+                  type="button"
+                  disabled={!editable}
+                  onClick={() => patch({ stage: stage.value })}
+                  key={stage.value}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
             {errors.stage ? <span className="field-error">{errors.stage}</span> : null}
           </div>
         ) : null}
-        {values.hasThoughtAboutNext === false ? (
-          <div className="split-choice">
-            {[true, false].map((answer) => (
-              <button
-                className={`choice-card ${values.requiresAssistance === answer ? 'selected' : ''}`}
-                type="button"
-                disabled={!editable}
-                onClick={() => patch({ requiresAssistance: answer })}
-                key={String(answer)}
-              >
-                {answer ? 'Idara help needed' : 'No assistance needed'}
-              </button>
-            ))}
+        {values.nextQualificationIntent === 'not_now' || (!values.nextQualificationIntent && values.hasThoughtAboutNext === false) ? (
+          <div className="sub-question">
+            <div className="sub-question-header">
+              <span>Assistance</span>
+              <p>Tell us whether you still need guidance at this stage.</p>
+            </div>
+            <div className="split-choice">
+              {[true, false].map((answer) => (
+                <button
+                  className={`choice-card sub-choice ${values.requiresAssistance === answer ? 'selected' : ''}`}
+                  type="button"
+                  disabled={!editable}
+                  onClick={() => patch({ requiresAssistance: answer })}
+                  key={String(answer)}
+                >
+                  {answer ? 'Idara help needed' : 'No assistance needed'}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
         {errors.requiresAssistance ? <span className="field-error">{errors.requiresAssistance}</span> : null}
@@ -556,6 +614,28 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
           />
           {errors.razaDays ? <span className="field-error">{errors.razaDays}</span> : null}
         </label>
+        {values.nextQualificationIntent === 'already_pursuing' ? (
+          <div className="sub-question">
+            <div className="sub-question-header">
+              <span>Leaves</span>
+              <p>Select whether your current course needs leave support from Idara this academic year.</p>
+            </div>
+            <div className="split-choice">
+              {[true, false].map((answer) => (
+                <button
+                  className={`choice-card sub-choice ${values.needsLeavesThisYear === answer ? 'selected' : ''}`}
+                  type="button"
+                  disabled={!editable}
+                  onClick={() => patch({ needsLeavesThisYear: answer })}
+                  key={String(answer)}
+                >
+                  {answer ? 'Need leaves during this academic year' : 'No additional leaves needed this year'}
+                </button>
+              ))}
+            </div>
+            {errors.needsLeavesThisYear ? <span className="field-error">{errors.needsLeavesThisYear}</span> : null}
+          </div>
+        ) : null}
         <PillGroup
           label="Likely exam months"
           items={MONTHS}
@@ -621,8 +701,9 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
           ['Full Name', values.fullName],
           ['Qualifications', values.qualifications.join(', ')],
           ['Other Qualification', values.otherQual],
-          ['Pursuing Next Qualification', values.hasThoughtAboutNext ? 'Yes' : 'No'],
+          ['Next Qualification', nextQualificationLabel(values)],
           ['Stage', stageLabels[values.stage]],
+          ['Leaves Needed This Year', values.needsLeavesThisYear === null ? '' : values.needsLeavesThisYear ? 'Yes' : 'No'],
           ['Requires Idara Assistance', values.requiresAssistance === null ? '' : values.requiresAssistance ? 'Yes' : 'No'],
           ['Degree / Programme', values.degreeApplying],
           ['Institution', values.institution],
@@ -642,7 +723,11 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
             </div>
           ))}
       </div>
-      <div className="notice warning">After submission, status is pending until reviewed by the Idara.</div>
+      {isAutoApprovedRegistration(values) ? (
+        <div className="notice success">This response is eligible for automatic approval because no Idara assistance or leave support is needed.</div>
+      ) : (
+        <div className="notice warning">After submission, status is pending until reviewed by the Idara.</div>
+      )}
     </div>
   );
 }

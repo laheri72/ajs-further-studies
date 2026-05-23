@@ -3,7 +3,10 @@ import { EMPTY_REGISTRATION } from '../data/constants';
 import {
   canStudentEdit,
   filterStudents,
+  isAutoApprovedRegistration,
   isValidStudentEmail,
+  needsProgrammeDetails,
+  nextQualificationLabel,
   normalizeTrNo,
   routeForAuthState,
   statsForStudents,
@@ -22,6 +25,7 @@ function validValues(overrides = {}) {
     fullName: 'Student One',
     qualifications: ['Jamea Diploma'],
     hasThoughtAboutNext: true,
+    nextQualificationIntent: 'planning',
     stage: 'apply_raza',
     degreeApplying: 'LLB',
     institution: 'University',
@@ -60,10 +64,25 @@ describe('registration helpers', () => {
     expect(payload.trNo).toBe('25687');
   });
 
-  it('allows student edits only before approval', () => {
+  it('allows student edits only before submission or when on hold', () => {
     expect(canStudentEdit(null)).toBe(true);
     expect(canStudentEdit({ status: 'pending' })).toBe(true);
+    expect(canStudentEdit({ status: 'pending', submittedAt: 'date' })).toBe(false);
+    expect(canStudentEdit({ status: 'on-hold' })).toBe(true);
     expect(canStudentEdit({ status: 'approved' })).toBe(false);
+  });
+
+  it('summarizes next qualification intent', () => {
+    expect(nextQualificationLabel(validValues({ nextQualificationIntent: 'already_pursuing' }))).toBe('Already Pursuing');
+    expect(nextQualificationLabel(validValues({ nextQualificationIntent: '', hasThoughtAboutNext: false }))).toBe('Not Planning Now');
+  });
+
+  it('detects programme detail and auto-approval paths', () => {
+    expect(needsProgrammeDetails(validValues({ nextQualificationIntent: 'planning' }))).toBe(true);
+    expect(needsProgrammeDetails(validValues({ nextQualificationIntent: 'already_pursuing', needsLeavesThisYear: true }))).toBe(true);
+    expect(needsProgrammeDetails(validValues({ nextQualificationIntent: 'already_pursuing', needsLeavesThisYear: false }))).toBe(true);
+    expect(isAutoApprovedRegistration(validValues({ nextQualificationIntent: 'already_pursuing', needsLeavesThisYear: false }))).toBe(true);
+    expect(isAutoApprovedRegistration(validValues({ nextQualificationIntent: 'not_now', hasThoughtAboutNext: false, requiresAssistance: false }))).toBe(true);
   });
 });
 
@@ -78,9 +97,57 @@ describe('validation', () => {
     expect(
       validateRegistration(
         validValues({
+          nextQualificationIntent: 'not_now',
           hasThoughtAboutNext: false,
           stage: '',
           requiresAssistance: true,
+          degreeApplying: '',
+          studyCommitment: '',
+          examMonths: [],
+          clashWithMiqaat: null,
+        }),
+      ),
+    ).toEqual({});
+  });
+
+  it('requires programme details when already pursuing and leaves are needed', () => {
+    const errors = validateRegistration(
+      validValues({
+        nextQualificationIntent: 'already_pursuing',
+        hasThoughtAboutNext: true,
+        needsLeavesThisYear: true,
+        degreeApplying: '',
+      }),
+    );
+    expect(errors.degreeApplying).toBeTruthy();
+  });
+
+  it('already pursuing still requires programme details before auto-approval', () => {
+    const errors = validateRegistration(
+      validValues({
+        nextQualificationIntent: 'already_pursuing',
+        hasThoughtAboutNext: true,
+        needsLeavesThisYear: false,
+        stage: '',
+        degreeApplying: '',
+        studyCommitment: '',
+        examMonths: [],
+        clashWithMiqaat: null,
+      }),
+    );
+
+    expect(errors.degreeApplying).toBeTruthy();
+    expect(errors.stage).toBeUndefined();
+  });
+
+  it('not planning with no assistance does not require programme details', () => {
+    expect(
+      validateRegistration(
+        validValues({
+          nextQualificationIntent: 'not_now',
+          hasThoughtAboutNext: false,
+          requiresAssistance: false,
+          stage: '',
           degreeApplying: '',
           studyCommitment: '',
           examMonths: [],
@@ -100,6 +167,7 @@ describe('admin dashboard helpers', () => {
   const students = [
     { trNo: 'TR1', fullName: 'Ali', email: 'a@example.com', degreeApplying: 'LLB', status: 'pending', clashWithMiqaat: true },
     { trNo: 'TR2', fullName: 'Musa', email: 'm@example.com', degreeApplying: 'MBBS', status: 'approved', clashWithMiqaat: false },
+    { trNo: 'TR3', fullName: 'Hasan', email: 'h@example.com', degreeApplying: 'BSc', status: 'on-hold', clashWithMiqaat: false },
   ];
 
   it('filters students by query and status', () => {
@@ -108,7 +176,7 @@ describe('admin dashboard helpers', () => {
   });
 
   it('calculates summary stats', () => {
-    expect(statsForStudents(students)).toEqual({ total: 2, pending: 1, approved: 1, clashes: 1 });
+    expect(statsForStudents(students)).toEqual({ total: 3, pending: 1, onHold: 1, approved: 1, clashes: 1 });
   });
 });
 

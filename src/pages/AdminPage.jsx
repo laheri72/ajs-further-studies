@@ -1,4 +1,4 @@
-import { Search, ShieldCheck, X } from 'lucide-react';
+import { AlertCircle, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
@@ -6,7 +6,7 @@ import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { getAllStudents, updateStudentReview } from '../services/firestore';
+import { clearStudentRegistration, getAllStudents, updateStudentReview } from '../services/firestore';
 import { filterStudents, statsForStudents } from '../utils/registration';
 
 export function AdminPage() {
@@ -64,6 +64,7 @@ function AdminDashboard() {
         <section className="stats-grid">
           <StatCard label="Total Students" value={stats.total} tone="gold" />
           <StatCard label="Pending" value={stats.pending} tone="warning" />
+          <StatCard label="On Hold" value={stats.onHold} tone="hold" />
           <StatCard label="Approved" value={stats.approved} tone="success" />
           <StatCard label="Miqaat Clashes" value={stats.clashes} tone="danger" />
         </section>
@@ -80,6 +81,7 @@ function AdminDashboard() {
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
+            <option value="on-hold">On Hold</option>
             <option value="approved">Approved</option>
           </select>
         </section>
@@ -138,6 +140,10 @@ function AdminDashboard() {
             setStudents((current) => current.map((student) => (student.id === updated.id ? updated : student)));
             setSelected(null);
           }}
+          onCleared={(uid) => {
+            setStudents((current) => current.filter((student) => student.id !== uid));
+            setSelected(null);
+          }}
         />
       ) : null}
     </AppShell>
@@ -153,13 +159,18 @@ function StatCard({ label, value, tone }) {
   );
 }
 
-function ReviewModal({ student, reviewer, onClose, onSaved }) {
-  const [status, setStatus] = useState(student.status === 'approved' ? 'approved' : 'pending');
+function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) {
+  const [status, setStatus] = useState(['pending', 'on-hold', 'approved'].includes(student.status) ? student.status : 'pending');
   const [adminNotes, setAdminNotes] = useState(student.adminNotes || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   async function save() {
+    if (status === 'on-hold' && !adminNotes.trim()) {
+      setError('Please add a note so the student knows what to clarify.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -167,6 +178,23 @@ function ReviewModal({ student, reviewer, onClose, onSaved }) {
       onSaved({ ...student, status, adminNotes, reviewedBy: reviewer.email });
     } catch (err) {
       setError(err.message || 'Unable to save review.');
+      setSaving(false);
+    }
+  }
+
+  async function clearRegistration() {
+    const confirmed = window.confirm(
+      `Permanently clear ${student.fullName || student.email}'s further-studies registration? They will be able to fill the form again from the start.`,
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      await clearStudentRegistration(student.id);
+      onCleared(student.id);
+    } catch (err) {
+      setError(err.message || 'Unable to clear this registration.');
       setSaving(false);
     }
   }
@@ -206,33 +234,41 @@ function ReviewModal({ student, reviewer, onClose, onSaved }) {
         </div>
 
         <div className="split-choice modal-choice">
-          {['pending', 'approved'].map((nextStatus) => (
+          {['pending', 'on-hold', 'approved'].map((nextStatus) => (
             <button
               className={`choice-card ${status === nextStatus ? 'selected' : ''}`}
               type="button"
               onClick={() => setStatus(nextStatus)}
               key={nextStatus}
             >
-              <ShieldCheck size={16} />
-              {nextStatus === 'approved' ? 'Approved' : 'Pending'}
+              {nextStatus === 'on-hold' ? <AlertCircle size={16} /> : <ShieldCheck size={16} />}
+              {nextStatus === 'approved' ? 'Approved' : nextStatus === 'on-hold' ? 'On Hold' : 'Pending'}
             </button>
           ))}
         </div>
 
         <label>
-          Notes visible to student
+          Notes visible to student {status === 'on-hold' ? '(required)' : ''}
           <textarea value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} />
         </label>
 
         {error ? <div className="notice danger">{error}</div> : null}
 
         <div className="form-actions">
-          <button className="outline-button" type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="gold-button" type="button" onClick={save} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Review'}
-          </button>
+          <div className="modal-danger-actions">
+            <button className="danger-button" type="button" onClick={clearRegistration} disabled={saving}>
+              <Trash2 size={15} />
+              Clear Registration
+            </button>
+          </div>
+          <div className="modal-save-actions">
+            <button className="outline-button" type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="gold-button" type="button" onClick={save} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Review'}
+            </button>
+          </div>
         </div>
       </section>
     </div>

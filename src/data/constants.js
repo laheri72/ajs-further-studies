@@ -57,6 +57,27 @@ export const STAGES = [
   },
 ];
 
+export const NEXT_QUALIFICATION_OPTIONS = [
+  {
+    value: 'planning',
+    label: 'Yes, I am planning to acquire the next qualification',
+    shortLabel: 'Planning Next Qualification',
+    continuesWorkflow: true,
+  },
+  {
+    value: 'already_pursuing',
+    label: 'I am already pursuing a degree or course',
+    shortLabel: 'Already Pursuing',
+    continuesWorkflow: true,
+  },
+  {
+    value: 'not_now',
+    label: 'No, I am not planning one right now',
+    shortLabel: 'Not Planning Now',
+    continuesWorkflow: false,
+  },
+];
+
 export const STUDENT_STEPS = ['Details', 'Qualifications', 'Next Steps', 'Programme', 'Review'];
 
 export const EMPTY_REGISTRATION = {
@@ -64,8 +85,10 @@ export const EMPTY_REGISTRATION = {
   fullName: '',
   qualifications: [],
   otherQual: '',
+  nextQualificationIntent: '',
   hasThoughtAboutNext: null,
   stage: '',
+  needsLeavesThisYear: null,
   requiresAssistance: null,
   degreeApplying: '',
   institution: '',
