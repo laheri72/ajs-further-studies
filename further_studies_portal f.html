@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Further Studies Portal</title>
+
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║              SETUP GUIDE — READ BEFORE OPENING                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║  STEP 1 — Create Firebase Project                                ║
+║    → https://console.firebase.google.com                        ║
+║    → Click "Add project", name it "further-studies-portal"      ║
+║                                                                  ║
+║  STEP 2 — Enable Google Sign-In                                  ║
+║    → Firebase Console → Authentication → Sign-in method         ║
+║    → Enable "Google" provider                                    ║
+║                                                                  ║
+║  STEP 3 — Create Firestore Database                              ║
+║    → Firebase Console → Firestore Database → Create database     ║
+║    → Start in "test mode"                                        ║
+║                                                                  ║
+║  STEP 4 — Get your Firebase config                               ║
+║    → Firebase Console → Project Settings → Your apps            ║
+║    → Register a Web App → Copy the firebaseConfig object         ║
+║    → Paste it into FIREBASE_CONFIG below (line ~460)             ║
+║                                                                  ║
+║  STEP 5 — Add yourself as Admin in Firestore                     ║
+║    → Firestore → Create collection "admins"                      ║
+║    → Document ID = your-email@gmail.com                          ║
+║    → Add field: email = "your-email@gmail.com"                   ║
+║                                                                  ║
+║  STEP 6 — Deploy FREE to Netlify                                 ║
+║    → https://netlify.com → "Add new site" → "Deploy manually"   ║
+║    → Drag & drop this HTML file → get a real URL instantly       ║
+║                                                                  ║
+║  STEP 7 — Add Netlify domain to Firebase                         ║
+║    → Firebase → Authentication → Settings → Authorized domains  ║
+║    → Add your-site.netlify.app                                   ║
+║                                                                  ║
+║  YOUR LINKS (replace with your Netlify URL):                     ║
+║    Student Portal: https://your-site.netlify.app/#student       ║
+║    Admin Portal:   https://your-site.netlify.app/#admin         ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a84c;--gold-l:#e8c97a;
+  --bg:#081a0b;--bg2:#0b2210;--bg3:#0d2a13;
+  --card:rgba(255,255,255,0.04);--card-b:rgba(255,255,255,0.09);
+  --text:#f0ede4;--muted:rgba(240,237,228,0.52);--muted2:rgba(240,237,228,0.28);
+  --danger:#e07070;--success:#6dbf82;--warn:#e8c97a;
+  --in:rgba(255,255,255,0.06);--in-b:rgba(201,168,76,0.28);
+  --r:8px;--rl:13px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Jost',sans-serif;background:radial-gradient(ellipse at 20% 15%,#0d2a14 0%,var(--bg) 65%);background-attachment:fixed;color:var(--text);min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:3px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fade-up{animation:fadeUp .38s ease forwards}
+.fade-in{animation:fadeIn .28s ease forwards}
+
+/* ── LOADING ── */
+#page-loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999}
+.spinner{width:34px;height:34px;border:2px solid rgba(201,168,76,0.18);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── PAGES ── */
+.page{display:none;min-height:100vh}
+.page.active{display:block}
+
+/* ── NAV ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 34px;height:60px;border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(8,26,11,0.93);backdrop-filter:blur(14px);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:11px;cursor:pointer}
+.emblem{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond';color:var(--gold);font-size:13px;font-weight:600}
+.logo-txt{font-family:'Cormorant Garamond';color:var(--gold);font-size:17px;font-weight:500;letter-spacing:.04em}
+.nav-r{display:flex;align-items:center;gap:13px}
+.nav-user{display:flex;align-items:center;gap:9px}
+.nav-avatar{width:29px;height:29px;border-radius:50%;border:1.5px solid var(--gold);object-fit:cover}
+.nav-nm{font-size:12px;color:var(--muted)}
+
+/* ── BUTTONS ── */
+.btn{font-family:'Jost';font-size:13px;font-weight:500;letter-spacing:.07em;padding:11px 24px;border-radius:var(--r);cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-g{background:var(--gold);color:#081a0b}
+.btn-g:hover{background:var(--gold-l)}
+.btn-g:disabled{opacity:.45;cursor:not-allowed}
+.btn-o{background:transparent;border:1px solid var(--in-b);color:var(--text)}
+.btn-o:hover{border-color:var(--gold);color:var(--gold)}
+.btn-danger{background:rgba(224,112,112,0.09);border:1px solid rgba(224,112,112,0.28);color:var(--danger);font-family:'Jost';font-size:12px;padding:7px 16px;border-radius:var(--r);cursor:pointer;transition:all .2s}
+.btn-danger:hover{background:rgba(224,112,112,0.18)}
+.btn-sm{padding:6px 14px;font-size:11px}
+.btn-full{width:100%}
+.btn-google{background:#fff;color:#3c4043;border:1px solid #dadce0;font-family:'Jost';font-size:14px;font-weight:500;padding:13px 24px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .2s;width:100%;justify-content:center;letter-spacing:.02em}
+.btn-google:hover{background:#f8f8f8;box-shadow:0 2px 10px rgba(0,0,0,0.15)}
+.g-icon{width:20px;height:20px;flex-shrink:0}
+
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--card-b);border-radius:var(--rl);padding:28px 32px}
+.card-sm{background:var(--card);border:1px solid var(--card-b);border-radius:var(--r);padding:14px 18px}
+
+/* ── INPUTS ── */
+input[type=text],input[type=number],input[type=password],input[type=email],select,textarea{
+  width:100%;background:var(--in);border:1px solid var(--in-b);color:var(--text);
+  border-radius:var(--r);padding:11px 14px;font-family:'Jost';font-size:14px;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:rgba(201,168,76,.65)}
+select option{background:#0b2210;color:var(--text)}
+textarea{resize:vertical;min-height:72px}
+input[type=checkbox]{width:auto;accent-color:var(--gold);cursor:pointer}
+.field{margin-bottom:18px}
+.lbl{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.req{color:var(--gold)}
+.ferr{font-size:11px;color:var(--danger);margin-top:5px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── RADIO CARDS ── */
+.rg{display:flex;gap:11px}
+.rc{flex:1;border:1px solid rgba(201,168,76,.2);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.025);display:flex;align-items:flex-start;gap:10px}
+.rc:hover{border-color:rgba(201,168,76,.45)}
+.rc.sel{border-color:var(--gold);background:rgba(201,168,76,.07)}
+.rc.cen{justify-content:center;text-align:center;align-items:center}
+.rdot{width:15px;height:15px;border-radius:50%;border:1.5px solid rgba(255,255,255,.22);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:border-color .2s}
+.rc.sel .rdot{border-color:var(--gold)}
+.rdot-in{width:7px;height:7px;border-radius:50%;background:var(--gold);display:none}
+.rc.sel .rdot-in{display:block}
+.rlbl{font-size:13px;color:var(--text);line-height:1.5}
+
+/* ── PILLS ── */
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.pill{padding:5px 12px;border-radius:20px;cursor:pointer;font-size:12px;transition:all .2s;border:1px solid rgba(201,168,76,.2);background:rgba(255,255,255,.03);color:var(--muted)}
+.pill:hover{border-color:rgba(201,168,76,.4)}
+.pill.on{border-color:var(--gold);background:rgba(201,168,76,.1);color:var(--gold)}
+.pill.dn.on{border-color:var(--danger);background:rgba(224,112,112,.08);color:var(--danger)}
+.spill{display:inline-block;padding:4px 13px;border-radius:20px;font-size:11px;font-weight:500}
+.sp-pending{background:rgba(232,201,122,.12);color:var(--warn);border:1px solid rgba(232,201,122,.28)}
+.sp-approved{background:rgba(109,191,130,.12);color:var(--success);border:1px solid rgba(109,191,130,.28)}
+
+/* ── PROGRESS ── */
+.prog{display:flex;margin-bottom:30px}
+.pstep{flex:1;display:flex;flex-direction:column;align-items:center}
+.pswrap{display:flex;align-items:center;width:100%}
+.pline{flex:1;height:1px;background:rgba(255,255,255,.1);transition:background .3s}
+.pline.done{background:var(--gold)}
+.pcirc{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'Jost';border:1.5px solid rgba(255,255,255,.18);color:var(--muted2);background:transparent;transition:all .3s}
+.pcirc.done{background:var(--gold);border-color:var(--gold);color:#081a0b;font-weight:700}
+.pcirc.active{border-color:var(--gold);color:var(--gold)}
+.plbl{font-size:9px;color:var(--muted2);margin-top:5px;text-transform:uppercase;letter-spacing:.08em;transition:color .3s}
+.plbl.active{color:var(--gold)}
+
+/* ── STEP PANES ── */
+.sp{display:none}
+.sp.active{display:block;animation:fadeUp .3s ease}
+.factions{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+
+/* ── INFO BOXES ── */
+.info{border-radius:var(--r);padding:14px 18px;font-size:12px;line-height:1.7}
+.ig{background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.18);color:var(--muted)}
+.ip{background:rgba(232,201,122,.05);border:1px solid rgba(232,201,122,.2)}
+.ia{background:rgba(109,191,130,.05);border:1px solid rgba(109,191,130,.2)}
+.id{background:rgba(224,112,112,.06);border:1px solid rgba(224,112,112,.22)}
+
+/* ── TABLE ── */
+.twrap{background:var(--card);border:1px solid var(--card-b);border-radius:var(--rl);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead th{font-size:10px;color:var(--muted);text-align:left;padding:13px 14px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;border-bottom:1px solid rgba(255,255,255,.06)}
+tbody td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+tbody tr:hover td{background:rgba(255,255,255,.015)}
+tbody tr:last-child td{border-bottom:none}
+
+/* ── STATS ── */
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.scard{background:var(--card);border:1px solid var(--card-b);border-radius:var(--rl);padding:16px 20px}
+.slbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.sval{font-family:'Cormorant Garamond';font-size:32px;font-weight:500}
+
+/* ── REVIEW ── */
+.rrow{display:flex;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 0}
+.rkey{font-size:11px;color:var(--muted);width:185px;flex-shrink:0}
+.rval{font-size:13px;color:var(--text);flex:1}
+
+/* ── DETAIL GRID ── */
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.dcell{background:rgba(255,255,255,.025);border-radius:6px;padding:10px 13px}
+.dkey{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.dval{font-size:12px;color:var(--text)}
+
+/* ── MODAL ── */
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;align-items:center;justify-content:center;padding:24px}
+.moverlay.open{display:flex;animation:fadeIn .22s ease}
+.modal{background:#0b2210;border:1px solid rgba(255,255,255,.1);border-radius:var(--rl);padding:32px 36px;width:100%;max-width:540px;max-height:88vh;overflow-y:auto}
+.mhdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.mclose{background:transparent;border:1px solid var(--in-b);color:var(--text);width:29px;height:29px;border-radius:6px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.mclose:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── AUTH PORTAL ── */
+.aportal{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.acard{width:100%;max-width:440px;background:var(--card);border:1px solid var(--card-b);border-radius:16px;padding:48px 44px;text-align:center}
+.abadge{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-family:'Cormorant Garamond';color:var(--gold);font-size:22px;font-weight:600}
+.atitle{font-family:'Cormorant Garamond';color:var(--gold);font-size:28px;font-weight:500;margin-bottom:8px}
+.asub{color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:32px}
+.adiv{display:flex;align-items:center;gap:14px;margin:22px 0}
+.adiv-line{flex:1;height:1px;background:rgba(255,255,255,.07)}
+.adiv-txt{font-size:11px;color:var(--muted2);letter-spacing:.06em}
+
+/* ── HOME ── */
+.hwrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center}
+.hemblem{width:72px;height:72px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-family:'Cormorant Garamond';color:var(--gold);font-size:26px;font-weight:600}
+.htitle{font-family:'Cormorant Garamond';color:var(--gold);font-size:42px;font-weight:500;line-height:1.18;margin-bottom:12px}
+.hsub{color:var(--muted);font-size:14px;line-height:1.8;max-width:440px;margin:0 auto 52px}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:560px;width:100%}
+.pcard{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:32px 26px;text-align:left;transition:border-color .25s}
+.pcard:hover{border-color:rgba(201,168,76,.35)}
+.picon{font-size:28px;margin-bottom:14px}
+.pcard h3{font-family:'Cormorant Garamond';color:var(--text);font-size:19px;font-weight:500;margin-bottom:8px}
+.pcard p{color:var(--muted);font-size:12px;line-height:1.7;margin-bottom:22px}
+
+/* ── MISC ── */
+.success-icon{width:56px;height:56px;border-radius:50%;background:rgba(109,191,130,.14);border:1px solid rgba(109,191,130,.35);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 18px}
+.filter-row{display:flex;gap:12px;margin-bottom:14px}
+.filter-row input{flex:1}
+.filter-row select{width:148px}
+hr{border:none;border-top:1px solid rgba(255,255,255,.07);margin:20px 0}
+.con{max-width:700px;margin:0 auto;padding:0 24px}
+.con-lg{max-width:1020px;margin:0 auto;padding:0 24px}
+.profile-center{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:24px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px){
+  nav{padding:0 16px}
+  .logo-txt{font-size:14px}
+  .pgrid{grid-template-columns:1fr}
+  .sgrid{grid-template-columns:1fr 1fr}
+  .dgrid{grid-template-columns:1fr}
+  .frow{grid-template-columns:1fr}
+  .acard{padding:36px 26px}
+  .modal{padding:24px 20px}
+  .htitle{font-size:30px}
+  .card{padding:22px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOADING ────────────────────────────────────────────────────── -->
+<div id="page-loading">
+  <div class="spinner" style="margin-bottom:16px;"></div>
+  <p style="font-family:'Jost';font-size:11px;color:var(--muted2);letter-spacing:.1em;">LOADING PORTAL…</p>
+</div>
+
+<!-- ── HOME ──────────────────────────────────────────────────────── -->
+<div id="page-home" class="page">
+  <div class="hwrap fade-up">
+    <div class="hemblem">FS</div>
+    <h1 class="htitle">Further Studies Portal</h1>
+    <p class="hsub">A secure, Google-authenticated platform for recording academic journeys beyond Jamea — raza management, degree registration, and Idara coordination.</p>
+    <div class="pgrid">
+      <div class="pcard">
+        <div class="picon">🎓</div>
+        <h3>Student Portal</h3>
+        <p>Register your further studies details, track your raza application status, and coordinate with the Idara.</p>
+        <button class="btn btn-g btn-full" onclick="location.hash='student'">Enter Student Portal</button>
+      </div>
+      <div class="pcard">
+        <div class="picon">🛡️</div>
+        <h3>Admin Portal</h3>
+        <p>Idara personnel can view all student registrations, manage raza approvals, and send notes to students.</p>
+        <button class="btn btn-o btn-full" onclick="location.hash='admin'">Enter Admin Portal</button>
+      </div>
+    </div>
+    <p style="margin-top:44px;font-size:10px;color:var(--muted2);letter-spacing:.09em;">SIGN IN WITH YOUR GOOGLE ACCOUNT TO CONTINUE • DATA IS PRIVATE &amp; SECURE</p>
+  </div>
+</div>
+
+<!-- ── STUDENT LOGIN ────────────────────────────────────────────── -->
+<div id="page-student-login" class="page">
+  <div class="aportal">
+    <div class="acard fade-up">
+      <div class="abadge">🎓</div>
+      <h1 class="atitle">Student Portal</h1>
+      <p class="asub">Sign in with your Google account to access registration and raza enquiry.</p>
+      <button class="btn-google" onclick="signInGoogle('student')">
+        <svg class="g-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="adiv"><div class="adiv-line"></div><span class="adiv-txt">SECURE · PRIVATE · EASY</span><div class="adiv-line"></div></div>
+      <p style="font-size:11px;color:var(--muted2);line-height:1.7;">Your Google account is used only for secure sign-in. All data is stored in the Idara's private database.</p>
+      <button class="btn btn-o" style="margin-top:20px;font-size:11px;padding:8px 20px;" onclick="location.hash=''">← Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN LOGIN ──────────────────────────────────────────────── -->
+<div id="page-admin-login" class="page">
+  <div class="aportal">
+    <div class="acard fade-up">
+      <div class="abadge">🛡️</div>
+      <h1 class="atitle">Admin Portal</h1>
+      <p class="asub">Idara personnel only. Sign in with your authorised Google account.</p>
+      <button class="btn-google" onclick="signInGoogle('admin')">
+        <svg class="g-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div id="admin-err" style="display:none;margin-top:16px;" class="info id">
+        <p id="admin-err-txt" style="color:var(--danger);font-size:13px;"></p>
+      </div>
+      <button class="btn btn-o" style="margin-top:20px;font-size:11px;padding:8px 20px;" onclick="location.hash=''">← Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── UNAUTHORIZED ─────────────────────────────────────────────── -->
+<div id="page-unauthorized" class="page">
+  <div class="aportal">
+    <div class="acard fade-up" style="text-align:center;">
+      <div style="font-size:36px;margin-bottom:18px;">🚫</div>
+      <h1 class="atitle" style="color:var(--danger);">Access Denied</h1>
+      <p class="asub" id="unauth-msg">Your account is not authorised to access the Admin Portal. Please contact the Idara to request access.</p>
+      <button class="btn btn-o btn-full" onclick="signOutUser()" style="margin-bottom:10px;">Sign out &amp; try a different account</button>
+      <button class="btn btn-o" style="font-size:11px;padding:8px 20px;" onclick="location.hash=''">← Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── STUDENT PROFILE SETUP ────────────────────────────────────── -->
+<div id="page-student-profile" class="page">
+  <nav>
+    <div class="logo" onclick="location.hash=''"><div class="emblem">FS</div><span class="logo-txt">Further Studies Portal</span></div>
+    <div class="nav-r">
+      <div class="nav-user"><img id="psetup-avatar" class="nav-avatar" src="" alt="" style="display:none"/><span id="psetup-nm" class="nav-nm"></span></div>
+      <button class="btn-danger" onclick="signOutUser()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="profile-center">
+    <div style="width:100%;max-width:480px;" class="fade-up">
+      <div class="card">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--gold);font-size:26px;margin-bottom:6px;">Welcome!</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px;line-height:1.7;">Before we begin, please enter your TR number to link your Google account to your Jamea records.</p>
+        <div class="field">
+          <label class="lbl">TR Number <span class="req">*</span></label>
+          <input type="text" id="ps-tr" placeholder="e.g. TR1234" oninput="this.value=this.value.toUpperCase()"/>
+          <div class="ferr" id="ps-tr-err"></div>
+        </div>
+        <div class="field">
+          <label class="lbl">Full Name <span class="req">*</span></label>
+          <input type="text" id="ps-name" placeholder="Your full name"/>
+          <div class="ferr" id="ps-name-err"></div>
+        </div>
+        <button class="btn btn-g btn-full" id="ps-btn" onclick="saveProfile()">Save &amp; Continue →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── STUDENT DASHBOARD ────────────────────────────────────────── -->
+<div id="page-student-dashboard" class="page">
+  <nav>
+    <div class="logo" onclick="location.hash=''"><div class="emblem">FS</div><span class="logo-txt">Further Studies Portal</span></div>
+    <div class="nav-r">
+      <div class="nav-user"><img id="s-avatar" class="nav-avatar" src="" alt="" style="display:none"/><span id="s-nm" class="nav-nm"></span></div>
+      <button class="btn-danger" onclick="signOutUser()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="con" style="padding-top:40px;padding-bottom:60px;">
+    <div id="s-status-banner" style="display:none;margin-bottom:28px;"></div>
+    <h1 id="s-form-title" style="font-family:'Cormorant Garamond';color:var(--gold);font-size:30px;margin-bottom:4px;">Further Studies Registration</h1>
+    <p id="s-form-sub" style="color:var(--muted);font-size:12px;margin-bottom:26px;">Complete all relevant sections for the Idara</p>
+    <div class="prog" id="s-prog"></div>
+    <div id="s-success" style="display:none;text-align:center;">
+      <div class="card">
+        <div class="success-icon">✓</div>
+        <h2 style="font-family:'Cormorant Garamond';color:var(--gold);font-size:24px;margin-bottom:10px;">Registration Submitted</h2>
+        <p style="color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:14px;">Your information has been recorded. The Idara will review your raza request.</p>
+        <div class="info ip" style="margin-bottom:20px;text-align:left;">
+          <p style="color:var(--warn);font-weight:500;margin-bottom:4px;">⏳ Status: Pending</p>
+          <p style="color:var(--muted);">Please visit the Idara if you are close to examinations. Refresh this page to check for status updates.</p>
+        </div>
+        <button class="btn btn-g" onclick="location.reload()">View My Status</button>
+      </div>
+    </div>
+    <div id="s-form-wrap" class="card">
+      <!-- Step 0 -->
+      <div class="sp active" id="s-step-0">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--text);font-size:21px;margin-bottom:16px;">Your Details</h2>
+        <div class="info ig" style="margin-bottom:20px;">ℹ️ Your name and TR number are pre-filled from your profile. You may update them if needed.</div>
+        <div class="field"><label class="lbl">TR Number <span class="req">*</span></label><input type="text" id="f-tr" oninput="this.value=this.value.toUpperCase()"/><div class="ferr" id="e-tr"></div></div>
+        <div class="field"><label class="lbl">Full Name <span class="req">*</span></label><input type="text" id="f-nm"/><div class="ferr" id="e-nm"></div></div>
+        <div class="field"><label class="lbl">Google Account (verified)</label><input type="text" id="f-em" disabled style="opacity:.5;cursor:not-allowed"/></div>
+      </div>
+      <!-- Step 1 -->
+      <div class="sp" id="s-step-1">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--text);font-size:21px;margin-bottom:6px;">Qualifications Acquired</h2>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:18px;line-height:1.6;">What qualifications have you acquired till now?</p>
+        <div class="ferr" id="e-quals" style="margin-bottom:10px;"></div>
+        <div id="quals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;"></div>
+        <div class="field" id="other-wrap" style="display:none;"><label class="lbl">Please specify</label><input type="text" id="f-other" placeholder="Describe your qualification"/></div>
+      </div>
+      <!-- Step 2 -->
+      <div class="sp" id="s-step-2">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--text);font-size:21px;margin-bottom:6px;">Next Qualification</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;line-height:1.6;">Have you thought about acquiring the next qualification?</p>
+        <div class="rg" style="margin-bottom:4px;">
+          <div class="rc cen" id="rc-yes" onclick="setIntent(true)"><span class="rlbl">Yes</span></div>
+          <div class="rc cen" id="rc-no" onclick="setIntent(false)"><span class="rlbl">No</span></div>
+        </div>
+        <div class="ferr" id="e-intent" style="margin:6px 0;"></div>
+        <div id="stage-sec" style="display:none;margin-top:22px;">
+          <p style="font-size:13px;color:var(--text);margin-bottom:12px;font-weight:500;">At what stage of the process are you?</p>
+          <div class="ferr" id="e-stage" style="margin-bottom:10px;"></div>
+          <div id="stage-cards" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+        <div id="no-sec" style="display:none;margin-top:20px;" class="info ig">
+          <p style="font-size:13px;color:var(--text);margin-bottom:14px;font-weight:500;">Do you require assistance from the Idara in planning ahead?</p>
+          <div class="rg">
+            <div class="rc cen" id="rc-ay" onclick="setAssist(true)"><span class="rlbl">Yes</span></div>
+            <div class="rc cen" id="rc-an" onclick="setAssist(false)"><span class="rlbl">No</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="sp" id="s-step-3">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--text);font-size:21px;margin-bottom:6px;">Programme Details</h2>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.6;">Your raza status will be visible when you return to this portal after submission.</p>
+        <div class="field"><label class="lbl">Degree / Programme Applying For <span class="req">*</span></label><input type="text" id="f-deg" placeholder="e.g. LLB, MBBS, BSc Computer Science"/><div class="ferr" id="e-deg"></div></div>
+        <div class="field"><label class="lbl">Institution / University</label><input type="text" id="f-inst" placeholder="Name of institution"/></div>
+        <div class="field"><label class="lbl">Study Commitment <span class="req">*</span></label><textarea id="f-sc" placeholder="e.g. 3 days per week, full-time evenings…"></textarea><div class="ferr" id="e-sc"></div></div>
+        <div class="field"><label class="lbl">How many days of raza will be required throughout the year? <span class="req">*</span></label><input type="number" id="f-rd" min="0" placeholder="Number of raza days"/><div class="ferr" id="e-rd"></div></div>
+        <div class="field"><label class="lbl">What month are the exams likely to fall in? <span class="req">*</span></label><div class="pills" id="month-pills"></div><div class="ferr" id="e-mths" style="margin-top:6px;"></div></div>
+        <div class="field">
+          <label class="lbl">Do these exam dates clash with any Miqaat or Jamea event? <span class="req">*</span></label>
+          <div class="rg" style="margin-bottom:4px;">
+            <div class="rc cen" id="rc-cy" onclick="setClash(true)"><span class="rlbl">Yes</span></div>
+            <div class="rc cen" id="rc-cn" onclick="setClash(false)"><span class="rlbl">No</span></div>
+          </div>
+          <div class="ferr" id="e-clash"></div>
+          <div id="clash-detail" style="display:none;margin-top:13px;">
+            <p style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Which events?</p>
+            <div class="pills" id="event-pills" style="margin-bottom:12px;"></div>
+            <input type="text" id="f-cd" placeholder="Additional clash details (optional)"/>
+          </div>
+        </div>
+        <div class="field"><label class="lbl">Additional Notes for Idara</label><textarea id="f-notes" placeholder="Any other relevant information…"></textarea></div>
+      </div>
+      <!-- Step 4 -->
+      <div class="sp" id="s-step-4">
+        <h2 style="font-family:'Cormorant Garamond';color:var(--text);font-size:21px;margin-bottom:6px;">Review &amp; Submit</h2>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:20px;">Please review your details before submitting.</p>
+        <div id="review-rows"></div>
+        <div class="info ig" style="margin-top:18px;">After submission, your status will be <strong style="color:var(--warn);">Pending</strong>. Please visit the Idara if close to examinations. Final raza to attend examinations will be on <strong style="color:var(--text);">JHS</strong>.</div>
+      </div>
+      <hr/>
+      <div class="factions">
+        <button class="btn btn-o" id="s-prev" onclick="sPrev()" style="display:none;">← Back</button>
+        <div style="flex:1;"></div>
+        <button class="btn btn-g" id="s-next" onclick="sNext()">Continue →</button>
+        <button class="btn btn-g" id="s-submit" onclick="sSubmit()" style="display:none;">Submit Registration</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN DASHBOARD ──────────────────────────────────────────── -->
+<div id="page-admin-dashboard" class="page">
+  <nav>
+    <div class="logo" onclick="location.hash=''"><div class="emblem">FS</div><span class="logo-txt">Admin Dashboard</span></div>
+    <div class="nav-r">
+      <div class="nav-user"><img id="a-avatar" class="nav-avatar" src="" alt="" style="display:none"/><span id="a-nm" class="nav-nm"></span></div>
+      <button class="btn-danger" onclick="signOutUser()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="con-lg" style="padding-top:38px;padding-bottom:60px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;">
+      <div>
+        <h1 style="font-family:'Cormorant Garamond';color:var(--gold);font-size:30px;margin-bottom:4px;">Student Records</h1>
+        <p style="color:var(--muted);font-size:12px;">Further Studies — Raza Management</p>
+      </div>
+      <button class="btn btn-o btn-sm" onclick="adminLoad()">↻ Refresh</button>
+    </div>
+    <div class="sgrid" id="admin-stats"></div>
+    <div class="filter-row">
+      <input type="text" id="a-search" placeholder="Search by TR number, name, degree, or email…" oninput="adminRender()"/>
+      <select id="a-filter" onchange="adminRender()">
+        <option value="all">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+      </select>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>TR No</th><th>Name</th><th>Email</th><th>Degree</th><th>Exam Months</th><th>Clash</th><th>Status</th><th></th></tr></thead>
+        <tbody id="a-tbody"></tbody>
+      </table>
+      <div id="a-empty" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:13px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN MODAL ──────────────────────────────────────────────── -->
+<div class="moverlay" id="admin-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mhdr">
+      <div><h2 style="font-family:'Cormorant Garamond';color:var(--gold);font-size:22px;" id="m-name"></h2><p style="font-size:11px;color:var(--muted);" id="m-meta"></p></div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="dgrid" id="m-details"></div>
+    <div id="m-snotes" style="display:none;margin-top:11px;" class="card-sm">
+      <p class="dkey">Student Notes</p><p id="m-snotes-txt" class="dval" style="font-size:12px;margin-top:3px;"></p>
+    </div>
+    <hr/>
+    <p style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">Update Raza Status</p>
+    <div class="rg" style="margin-bottom:16px;">
+      <div class="rc cen" id="m-pending" onclick="setMStatus('pending')"><span class="rlbl">⏳ Pending</span></div>
+      <div class="rc cen" id="m-approved" onclick="setMStatus('approved')"><span class="rlbl">✓ Approved</span></div>
+    </div>
+    <div class="field"><label class="lbl">Notes for Student (visible on their dashboard)</label><textarea id="m-notes" rows="3" placeholder="e.g. Preliminary raza approved. Final raza to attend exams will be on JHS."></textarea></div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <button class="btn btn-g" style="flex:1;" onclick="adminSave()">Save Changes</button>
+      <button class="btn btn-o" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  PASTE YOUR FIREBASE CONFIG HERE                                ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+// ── Constants ─────────────────────────────────────────────────────
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MIQAAT = ["Milad un Nabi","Ashura","Eid ul Fitr","Eid ul Adha","Shab-e-Baraat","Laylatul Qadr","Ashara Mubarakah","Urs Mubarak","Jamea Annual Event","Other Jamea Event"];
+const QUALS  = ["Hifz ul Quran","Dars-e-Nizami (Alimiyah)","Jamea Diploma","Jamea Certificate","Bachelor's Degree","Master's Degree","PhD","Other"];
+const SSTEPS = ["Details","Qualifications","Next Steps","Programme","Review"];
+
+// ── State ──────────────────────────────────────────────────────────
+let db, auth, gProvider;
+let currentUser = null, userProfile = null, existingRecord = null;
+let sStep = 0, sForm = {}, adminStudents = [], modalRec = null, mStatus = 'pending';
+const isConfigured = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+
+// ── Init ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (!isConfigured) {
+    hide(); show('home');
+    console.warn('Firebase not configured. Fill in FIREBASE_CONFIG to enable authentication.');
+    return;
+  }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  gProvider = new firebase.auth.GoogleAuthProvider();
+  gProvider.setCustomParameters({ prompt:'select_account' });
+
+  auth.onAuthStateChanged(async user => {
+    currentUser = user;
+    hide();
+    const h = getHash();
+    if (h === 'student') await routeStudent();
+    else if (h === 'admin') await routeAdmin();
+    else show('home');
+  });
+});
+
+window.addEventListener('hashchange', async () => {
+  if (!isConfigured) { show('home'); return; }
+  const h = getHash();
+  if (h === 'student') await routeStudent();
+  else if (h === 'admin') await routeAdmin();
+  else show('home');
+});
+
+// ── Routing ────────────────────────────────────────────────────────
+function getHash() { return location.hash.replace('#','') || 'home'; }
+
+async function routeStudent() {
+  if (!currentUser) { show('student-login'); return; }
+  loading();
+  try {
+    const prof = await getProfile();
+    userProfile = prof;
+    if (!prof?.trNo) {
+      populateProfileSetup();
+      show('student-profile');
+    } else {
+      await initStudentDash();
+      show('student-dashboard');
+    }
+  } catch(e) { console.error(e); show('student-login'); }
+}
+
+async function routeAdmin() {
+  if (!currentUser) { show('admin-login'); return; }
+  loading();
+  try {
+    const ok = await checkAdmin(currentUser.email);
+    if (ok) { populateAdminNav(); await adminLoad(); show('admin-dashboard'); }
+    else {
+      document.getElementById('unauth-msg').textContent = `"${currentUser.email}" is not authorised for the Admin Portal. Contact the Idara to request access.`;
+      show('unauthorized');
+    }
+  } catch(e) { console.error(e); show('unauthorized'); }
+}
+
+// ── Auth ───────────────────────────────────────────────────────────
+async function signInGoogle(target) {
+  try {
+    await auth.signInWithPopup(gProvider);
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') {
+      if (target === 'admin') { document.getElementById('admin-err-txt').textContent = e.message; document.getElementById('admin-err').style.display = 'block'; }
+    }
+  }
+}
+function signOutUser() { auth.signOut().then(() => { currentUser = null; userProfile = null; location.hash = ''; show('home'); }); }
+
+async function checkAdmin(email) {
+  try { const d = await db.collection('admins').doc(email).get(); return d.exists; }
+  catch { return false; }
+}
+
+// ── Firestore ──────────────────────────────────────────────────────
+async function getProfile() {
+  if (!currentUser) return null;
+  const d = await db.collection('users').doc(currentUser.uid).get();
+  return d.exists ? d.data() : null;
+}
+async function upsertProfile(trNo, fullName) {
+  await db.collection('users').doc(currentUser.uid).set({ trNo, fullName, email: currentUser.email, photoURL: currentUser.photoURL||'', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+}
+async function getStudentRecord() {
+  const d = await db.collection('students').doc(currentUser.uid).get();
+  return d.exists ? d.data() : null;
+}
+async function upsertStudentRecord(data) {
+  await db.collection('students').doc(currentUser.uid).set({ ...data, uid: currentUser.uid, email: currentUser.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+}
+async function getAllStudents() {
+  const s = await db.collection('students').orderBy('submittedAt','desc').get();
+  return s.docs.map(d => ({ id:d.id, ...d.data() }));
+}
+async function updateStatus(uid, status, notes) {
+  await db.collection('students').doc(uid).update({ status, adminNotes:notes, reviewedAt: firebase.firestore.FieldValue.serverTimestamp() });
+}
+
+// ── Profile Setup ─────────────────────────────────────────────────
+function populateProfileSetup() {
+  const u = currentUser;
+  if (u.photoURL) { const img=document.getElementById('psetup-avatar'); img.src=u.photoURL; img.style.display='block'; }
+  document.getElementById('psetup-nm').textContent = u.displayName||u.email;
+  document.getElementById('ps-name').value = u.displayName||'';
+}
+async function saveProfile() {
+  const tr=document.getElementById('ps-tr').value.toUpperCase().trim(), nm=document.getElementById('ps-name').value.trim();
+  document.getElementById('ps-tr-err').textContent=''; document.getElementById('ps-name-err').textContent='';
+  let ok=true;
+  if (!tr) { document.getElementById('ps-tr-err').textContent='Required'; ok=false; }
+  if (!nm) { document.getElementById('ps-name-err').textContent='Required'; ok=false; }
+  if (!ok) return;
+  const btn=document.getElementById('ps-btn'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    await upsertProfile(tr, nm);
+    userProfile = { trNo:tr, fullName:nm, email:currentUser.email };
+    await initStudentDash();
+    show('student-dashboard');
+  } catch(e) { btn.textContent='Save & Continue →'; btn.disabled=false; alert('Error: '+e.message); }
+}
+
+// ── Student Dashboard ─────────────────────────────────────────────
+function populateStudentNav() {
+  const u=currentUser;
+  if (u.photoURL) { const img=document.getElementById('s-avatar'); img.src=u.photoURL; img.style.display='block'; }
+  document.getElementById('s-nm').textContent = userProfile?.fullName||u.displayName||u.email;
+}
+function populateAdminNav() {
+  const u=currentUser;
+  if (u.photoURL) { const img=document.getElementById('a-avatar'); img.src=u.photoURL; img.style.display='block'; }
+  document.getElementById('a-nm').textContent = u.displayName||u.email;
+}
+
+async function initStudentDash() {
+  populateStudentNav();
+  existingRecord = await getStudentRecord();
+  if (existingRecord) { renderStatusBanner(existingRecord); document.getElementById('s-form-title').textContent='Update Registration'; document.getElementById('s-form-sub').textContent='You can update your further studies information below'; }
+  initForm();
+}
+
+function renderStatusBanner(rec) {
+  const el=document.getElementById('s-status-banner'); el.style.display='block';
+  const pend=rec.status!=='approved';
+  el.innerHTML=`<div class="info ${pend?'ip':'ia'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <p style="font-size:13px;color:${pend?'var(--warn)':'var(--success)'};font-weight:500;">${pend?'⏳ Raza Status: Pending':'✓ Raza Status: Approved'}</p>
+      <span class="spill ${pend?'sp-pending':'sp-approved'}">${pend?'Pending':'Approved'}</span>
+    </div>
+    ${pend?`<p style="color:var(--muted);">Please visit the Idara if you are close to your examinations. Your preliminary raza request is being reviewed.</p>`:
+    `<p style="color:var(--muted);">This is a <strong>preliminary raza</strong> with regard to your programme. Final raza to attend examinations will be on <strong style="color:var(--text)">JHS</strong>.</p>`}
+    ${rec.adminNotes?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)"><p style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Notes from Idara</p><p style="font-size:13px;color:var(--text);">${rec.adminNotes}</p></div>`:''}
+  </div>`;
+}
+
+// ── Form ──────────────────────────────────────────────────────────
+function initForm() {
+  sStep=0;
+  sForm=existingRecord?{...existingRecord}:{trNo:userProfile?.trNo||'',fullName:userProfile?.fullName||'',qualifications:[],otherQual:'',hasThoughtAboutNext:null,stage:null,degreeApplying:'',institution:'',studyCommitment:'',razaDays:'',examMonths:[],clashWithMiqaat:null,clashEvents:[],clashDetails:'',requiresAssistance:null,additionalNotes:''};
+  document.getElementById('f-tr').value=sForm.trNo||'';
+  document.getElementById('f-nm').value=sForm.fullName||'';
+  document.getElementById('f-em').value=currentUser.email;
+  if (sForm.degreeApplying) document.getElementById('f-deg').value=sForm.degreeApplying;
+  if (sForm.institution) document.getElementById('f-inst').value=sForm.institution;
+  if (sForm.studyCommitment) document.getElementById('f-sc').value=sForm.studyCommitment;
+  if (sForm.razaDays) document.getElementById('f-rd').value=sForm.razaDays;
+  if (sForm.additionalNotes) document.getElementById('f-notes').value=sForm.additionalNotes;
+  if (sForm.clashDetails) document.getElementById('f-cd').value=sForm.clashDetails;
+  if (sForm.otherQual) document.getElementById('f-other').value=sForm.otherQual;
+  if (sForm.hasThoughtAboutNext!==null) setIntent(sForm.hasThoughtAboutNext);
+  if (sForm.stage) setStage(sForm.stage);
+  if (sForm.requiresAssistance!==null) setAssist(sForm.requiresAssistance);
+  if (sForm.clashWithMiqaat!==null) setClash(sForm.clashWithMiqaat);
+
+  // Quals
+  const qg=document.getElementById('quals-grid'); qg.innerHTML='';
+  QUALS.forEach(q=>{
+    const lbl=document.createElement('label'); lbl.className='rc'; lbl.style.cssText='display:flex;align-items:center;gap:10px;cursor:pointer;';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.value=q; cb.checked=(sForm.qualifications||[]).includes(q);
+    cb.onchange=()=>{if(cb.checked){if(!sForm.qualifications.includes(q))sForm.qualifications.push(q);}else sForm.qualifications=sForm.qualifications.filter(x=>x!==q);document.getElementById('other-wrap').style.display=sForm.qualifications.includes('Other')?'block':'none';};
+    const sp=document.createElement('span'); sp.style.cssText='font-size:13px;color:var(--text)'; sp.textContent=q;
+    lbl.append(cb,sp); qg.appendChild(lbl);
+  });
+  document.getElementById('other-wrap').style.display=(sForm.qualifications||[]).includes('Other')?'block':'none';
+
+  // Stages
+  const stages=[['apply_raza','I have decided and would like to apply for raza'],['istirshaad','I am still considering my options and would like to do an istirshaad araz'],['research','I need more time to do research before doing any araz']];
+  const sc=document.getElementById('stage-cards'); sc.innerHTML='';
+  stages.forEach(([v,l])=>{const d=document.createElement('div');d.className='rc'+(sForm.stage===v?' sel':'');d.id='rcs-'+v;d.onclick=()=>setStage(v);d.innerHTML=`<div class="rdot"><div class="rdot-in"></div></div><span class="rlbl">${l}</span>`;sc.appendChild(d);});
+
+  // Months
+  const mp=document.getElementById('month-pills'); mp.innerHTML='';
+  MONTHS.forEach(m=>{const d=document.createElement('div');d.className='pill'+((sForm.examMonths||[]).includes(m)?' on':'');d.textContent=m.slice(0,3);d.onclick=()=>{if(sForm.examMonths.includes(m)){sForm.examMonths=sForm.examMonths.filter(x=>x!==m);d.classList.remove('on');}else{sForm.examMonths.push(m);d.classList.add('on');}};mp.appendChild(d);});
+
+  // Events
+  const ep=document.getElementById('event-pills'); ep.innerHTML='';
+  MIQAAT.forEach(e=>{const d=document.createElement('div');d.className='pill dn'+((sForm.clashEvents||[]).includes(e)?' on':'');d.textContent=e;d.onclick=()=>{if(sForm.clashEvents.includes(e)){sForm.clashEvents=sForm.clashEvents.filter(x=>x!==e);d.classList.remove('on');}else{sForm.clashEvents.push(e);d.classList.add('on');}};ep.appendChild(d);});
+
+  buildProg(); showSStep(0);
+  document.getElementById('s-success').style.display='none';
+  document.getElementById('s-form-wrap').style.display='block';
+}
+
+function setIntent(v){sForm.hasThoughtAboutNext=v;document.getElementById('rc-yes').classList.toggle('sel',v===true);document.getElementById('rc-no').classList.toggle('sel',v===false);document.getElementById('stage-sec').style.display=v?'block':'none';document.getElementById('no-sec').style.display=!v?'block':'none';if(!v)sForm.stage=null;}
+function setStage(v){sForm.stage=v;['apply_raza','istirshaad','research'].forEach(s=>{const el=document.getElementById('rcs-'+s);if(el)el.classList.toggle('sel',s===v);});}
+function setAssist(v){sForm.requiresAssistance=v;document.getElementById('rc-ay').classList.toggle('sel',v===true);document.getElementById('rc-an').classList.toggle('sel',v===false);}
+function setClash(v){sForm.clashWithMiqaat=v;document.getElementById('rc-cy').classList.toggle('sel',v===true);document.getElementById('rc-cn').classList.toggle('sel',v===false);document.getElementById('clash-detail').style.display=v?'block':'none';if(!v){sForm.clashEvents=[];sForm.clashDetails='';document.getElementById('f-cd').value='';document.querySelectorAll('#event-pills .pill').forEach(p=>p.classList.remove('on'));}}
+
+function collectCurrent(){
+  if(sStep===0){sForm.trNo=document.getElementById('f-tr').value.toUpperCase().trim();sForm.fullName=document.getElementById('f-nm').value.trim();}
+  if(sStep===1){sForm.otherQual=document.getElementById('f-other').value.trim();}
+  if(sStep===3){sForm.degreeApplying=document.getElementById('f-deg').value.trim();sForm.institution=document.getElementById('f-inst').value.trim();sForm.studyCommitment=document.getElementById('f-sc').value.trim();sForm.razaDays=document.getElementById('f-rd').value;sForm.clashDetails=document.getElementById('f-cd').value.trim();sForm.additionalNotes=document.getElementById('f-notes').value.trim();}
+}
+function clrErr(){document.querySelectorAll('.ferr').forEach(e=>e.textContent='');}
+function setErr(id,msg){const el=document.getElementById('e-'+id);if(el)el.textContent=msg;}
+function validateStep(n){clrErr();let ok=true;
+  if(n===0){if(!document.getElementById('f-tr').value.trim()){setErr('tr','Required');ok=false;}if(!document.getElementById('f-nm').value.trim()){setErr('nm','Required');ok=false;}}
+  if(n===1){if(!(sForm.qualifications||[]).length){setErr('quals','Please select at least one');ok=false;}}
+  if(n===2){if(sForm.hasThoughtAboutNext===null){setErr('intent','Please select Yes or No');ok=false;}if(sForm.hasThoughtAboutNext&&!sForm.stage){setErr('stage','Please select your current stage');ok=false;}}
+  if(n===3){if(!document.getElementById('f-deg').value.trim()){setErr('deg','Required');ok=false;}if(!document.getElementById('f-sc').value.trim()){setErr('sc','Required');ok=false;}if(!document.getElementById('f-rd').value){setErr('rd','Required');ok=false;}if(!(sForm.examMonths||[]).length){setErr('mths','Please select at least one month');ok=false;}if(sForm.clashWithMiqaat===null){setErr('clash','Required');ok=false;}}
+  return ok;
+}
+function sNext(){collectCurrent();if(!validateStep(sStep))return;if(sForm.hasThoughtAboutNext===false&&sStep===2)sStep=4;else sStep++;showSStep(sStep);}
+function sPrev(){if(sForm.hasThoughtAboutNext===false&&sStep===4)sStep=2;else sStep--;showSStep(sStep);}
+async function sSubmit(){const btn=document.getElementById('s-submit');btn.textContent='Submitting…';btn.disabled=true;try{const rec={...sForm,status:existingRecord?.status||'pending',adminNotes:existingRecord?.adminNotes||'',submittedAt:existingRecord?.submittedAt||firebase.firestore.FieldValue.serverTimestamp()};await upsertStudentRecord(rec);await upsertProfile(sForm.trNo,sForm.fullName);document.getElementById('s-success').style.display='block';document.getElementById('s-form-wrap').style.display='none';}catch(e){btn.textContent='Submit Registration';btn.disabled=false;alert('Error: '+e.message);}}
+
+function buildProg(){const p=document.getElementById('s-prog');p.innerHTML='';SSTEPS.forEach((l,i)=>{const d=document.createElement('div');d.className='pstep';const ll=i>0?`<div class="pline" id="pll-${i}"></div>`:'';const lr=i<SSTEPS.length-1?`<div class="pline" id="plr-${i}"></div>`:'';d.innerHTML=`<div class="pswrap">${ll}<div class="pcirc" id="pc-${i}">${i+1}</div>${lr}</div><div class="plbl" id="plbl-${i}">${l}</div>`;p.appendChild(d);});updateProg();}
+function updateProg(){const disp=(sForm.hasThoughtAboutNext===false&&sStep===4)?3:sStep;SSTEPS.forEach((_,i)=>{const c=document.getElementById('pc-'+i),l=document.getElementById('plbl-'+i);if(!c)return;c.className='pcirc'+(i<disp?' done':i===disp?' active':'');c.textContent=i<disp?'✓':String(i+1);l.className='plbl'+(i===disp?' active':'');const ll=document.getElementById('pll-'+i);if(ll)ll.className='pline'+(i<=disp?' done':'');const lr=document.getElementById('plr-'+i);if(lr)lr.className='pline'+(i<disp?' done':'');});}
+function showSStep(n){document.querySelectorAll('.sp').forEach(p=>p.classList.remove('active'));document.getElementById('s-step-'+n).classList.add('active');document.getElementById('s-prev').style.display=n===0?'none':'inline-flex';document.getElementById('s-next').style.display=n===4?'none':'inline-flex';document.getElementById('s-submit').style.display=n===4?'inline-flex':'none';if(n===4)buildReview();updateProg();}
+
+function buildReview(){const sm={apply_raza:'Applying for Raza',istirshaad:'Istirshaad Araz',research:'Needs More Research'};const rows=[['TR Number',sForm.trNo],['Full Name',sForm.fullName],['Google Account',currentUser.email],['Qualifications',(sForm.qualifications||[]).join(', ')],sForm.otherQual?['Other Qualification',sForm.otherQual]:null,['Pursuing Next Qualification',sForm.hasThoughtAboutNext?'Yes':'No'],sForm.stage?['Stage',sm[sForm.stage]]:null,sForm.hasThoughtAboutNext?['Degree',sForm.degreeApplying]:null,sForm.institution?['Institution',sForm.institution]:null,sForm.studyCommitment?['Study Commitment',sForm.studyCommitment]:null,sForm.razaDays?['Raza Days / Year',sForm.razaDays+' days']:null,(sForm.examMonths||[]).length?['Exam Months',sForm.examMonths.join(', ')]:null,sForm.clashWithMiqaat!==null?['Miqaat Clash',sForm.clashWithMiqaat?'Yes':'No']:null,(sForm.clashWithMiqaat&&(sForm.clashEvents||[]).length)?['Clash Events',sForm.clashEvents.join(', ')]:null,sForm.clashDetails?['Clash Details',sForm.clashDetails]:null,(sForm.hasThoughtAboutNext===false&&sForm.requiresAssistance!==null)?['Requires Idara Assistance',sForm.requiresAssistance?'Yes':'No']:null,sForm.additionalNotes?['Additional Notes',sForm.additionalNotes]:null].filter(Boolean);document.getElementById('review-rows').innerHTML=rows.map(([k,v])=>`<div class="rrow"><span class="rkey">${k}</span><span class="rval">${v}</span></div>`).join('');}
+
+// ── Admin ──────────────────────────────────────────────────────────
+async function adminLoad(){try{adminStudents=await getAllStudents();renderStats();adminRender();}catch(e){console.error(e);}}
+function renderStats(){const t=adminStudents.length,p=adminStudents.filter(s=>s.status!=='approved').length,a=adminStudents.filter(s=>s.status==='approved').length,c=adminStudents.filter(s=>s.clashWithMiqaat).length;document.getElementById('admin-stats').innerHTML=[['Total Students',t,'var(--gold)'],['Pending',p,'var(--warn)'],['Approved',a,'var(--success)'],['Miqaat Clashes',c,'var(--danger)']].map(([l,v,col])=>`<div class="scard"><div class="slbl">${l}</div><div class="sval" style="color:${col};">${v}</div></div>`).join('');}
+function adminRender(){const q=(document.getElementById('a-search').value||'').toLowerCase(),f=document.getElementById('a-filter').value,sm={apply_raza:'Applying',istirshaad:'Istirshaad',research:'Research'};const fil=adminStudents.filter(s=>{const ms=(s.trNo||'').toLowerCase().includes(q)||(s.fullName||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)||(s.degreeApplying||'').toLowerCase().includes(q);return ms&&(f==='all'||s.status===f);});const tb=document.getElementById('a-tbody'),em=document.getElementById('a-empty');if(!fil.length){tb.innerHTML='';em.textContent=adminStudents.length===0?'No student registrations yet.':'No records match your search.';em.style.display='block';return;}em.style.display='none';tb.innerHTML=fil.map(s=>`<tr><td style="color:var(--gold);font-weight:500;">${s.trNo||'—'}</td><td style="color:var(--text);">${s.fullName||'—'}</td><td style="color:var(--muted);font-size:11px;">${s.email||'—'}</td><td style="color:var(--muted);">${s.degreeApplying||'—'}</td><td style="color:var(--muted);">${(s.examMonths||[]).slice(0,3).map(m=>m.slice(0,3)).join(', ')||'—'}</td><td style="text-align:center;">${s.clashWithMiqaat?'<span style="color:var(--danger)">⚠</span>':'<span style="color:var(--muted2)">—</span>'}</td><td><span class="spill ${s.status==='approved'?'sp-approved':'sp-pending'}">${s.status==='approved'?'Approved':'Pending'}</span></td><td><button class="btn btn-o btn-sm" onclick='openModal(${JSON.stringify(s).replace(/'/g,"&#39;")})'>Manage</button></td></tr>`).join('');}
+function openModal(rec){modalRec=rec;mStatus=rec.status;document.getElementById('m-name').textContent=rec.fullName||'—';document.getElementById('m-meta').textContent=(rec.trNo||'')+' · '+(rec.email||'');const sm={apply_raza:'Applying for Raza',istirshaad:'Istirshaad Araz',research:'Needs Research'};const cells=[['Degree',rec.degreeApplying],['Institution',rec.institution],['Study Commitment',rec.studyCommitment],['Raza Days / Year',rec.razaDays?rec.razaDays+' days':''],['Exam Months',(rec.examMonths||[]).join(', ')],['Qualifications',(rec.qualifications||[]).join(', ')],['Stage',sm[rec.stage]||'—'],['Miqaat Clash',rec.clashWithMiqaat?'Yes — '+((rec.clashEvents||[]).join(', ')||''):'No']].filter(([,v])=>v);document.getElementById('m-details').innerHTML=cells.map(([k,v])=>`<div class="dcell"><p class="dkey">${k}</p><p class="dval">${v}</p></div>`).join('');const sn=document.getElementById('m-snotes');if(rec.additionalNotes){document.getElementById('m-snotes-txt').textContent=rec.additionalNotes;sn.style.display='block';}else sn.style.display='none';document.getElementById('m-notes').value=rec.adminNotes||'';setMStatus(rec.status);document.getElementById('admin-modal').classList.add('open');}
+function setMStatus(v){mStatus=v;document.getElementById('m-pending').classList.toggle('sel',v==='pending');document.getElementById('m-approved').classList.toggle('sel',v==='approved');}
+function closeModal(){document.getElementById('admin-modal').classList.remove('open');modalRec=null;}
+async function adminSave(){if(!modalRec)return;const btn=document.querySelector('#admin-modal .btn-g');btn.textContent='Saving…';btn.disabled=true;try{const notes=document.getElementById('m-notes').value.trim();await updateStatus(modalRec.id,mStatus,notes);adminStudents=adminStudents.map(s=>s.id===modalRec.id?{...s,status:mStatus,adminNotes:notes}:s);renderStats();adminRender();closeModal();}catch(e){alert('Error: '+e.message);}btn.textContent='Save Changes';btn.disabled=false;}
+
+// ── Utils ──────────────────────────────────────────────────────────
+function show(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));const el=document.getElementById('page-'+name);if(el)el.classList.add('active');window.scrollTo(0,0);}
+function loading(){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-loading').style.display='flex';}
+function hide(){document.getElementById('page-loading').style.display='none';}
+</script>
+</body>
+</html>

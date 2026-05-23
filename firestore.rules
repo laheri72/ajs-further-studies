@@ -1,0 +1,111 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function adminDoc() {
+      return /databases/$(database)/documents/admins/$(request.auth.token.email);
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email is string
+        && exists(adminDoc())
+        && get(adminDoc()).data.active == true;
+    }
+
+    function validStatus(value) {
+      return value in ['pending', 'approved'];
+    }
+
+    function trBelongsToRequestUser(trNo) {
+      return trNo is string
+        && existsAfter(/databases/$(database)/documents/trIndex/$(trNo))
+        && getAfter(/databases/$(database)/documents/trIndex/$(trNo)).data.uid == request.auth.uid;
+    }
+
+    function studentOwnedKeysOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'uid',
+          'email',
+          'trNo',
+          'fullName',
+          'qualifications',
+          'otherQual',
+          'hasThoughtAboutNext',
+          'stage',
+          'requiresAssistance',
+          'degreeApplying',
+          'institution',
+          'studyCommitment',
+          'razaDays',
+          'examMonths',
+          'clashWithMiqaat',
+          'clashEvents',
+          'clashDetails',
+          'additionalNotes',
+          'updatedAt'
+        ]);
+    }
+
+    match /admins/{email} {
+      allow read: if isAdmin() || (signedIn() && request.auth.token.email == email);
+      allow write: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && trBelongsToRequestUser(request.resource.data.trNo);
+      allow delete: if false;
+    }
+
+    match /trIndex/{trNo} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && !exists(/databases/$(database)/documents/trIndex/$(trNo));
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if false;
+    }
+
+    match /students/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && trBelongsToRequestUser(request.resource.data.trNo)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.adminNotes == ''
+        && !('reviewedAt' in request.resource.data)
+        && !('reviewedBy' in request.resource.data);
+
+      allow update: if isOwner(uid)
+        && resource.data.status == 'pending'
+        && trBelongsToRequestUser(request.resource.data.trNo)
+        && studentOwnedKeysOnly();
+
+      allow update: if isAdmin()
+        && validStatus(request.resource.data.status)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'adminNotes', 'reviewedAt', 'reviewedBy', 'updatedAt']);
+
+      allow delete: if false;
+    }
+  }
+}
