@@ -25,8 +25,21 @@ service cloud.firestore {
       return value in ['pending', 'approved'];
     }
 
+    function isStudentEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('^[0-9]{5}@jameasaifiyah\\.edu$');
+    }
+
+    function trMatchesEmail(trNo) {
+      return trNo is string
+        && trNo.matches('^[0-9]{5}$')
+        && trNo + '@jameasaifiyah.edu' == request.auth.token.email;
+    }
+
     function trBelongsToRequestUser(trNo) {
       return trNo is string
+        && trMatchesEmail(trNo)
         && existsAfter(/databases/$(database)/documents/trIndex/$(trNo))
         && getAfter(/databases/$(database)/documents/trIndex/$(trNo)).data.uid == request.auth.uid;
     }
@@ -64,6 +77,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create, update: if isOwner(uid)
+        && isStudentEmail()
         && request.resource.data.uid == uid
         && request.resource.data.email == request.auth.token.email
         && trBelongsToRequestUser(request.resource.data.trNo);
@@ -73,13 +87,19 @@ service cloud.firestore {
     match /trIndex/{trNo} {
       allow read: if signedIn();
       allow create: if signedIn()
+        && isStudentEmail()
+        && trNo == request.resource.data.trNo
+        && trMatchesEmail(trNo)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && !exists(/databases/$(database)/documents/trIndex/$(trNo));
       allow update: if signedIn()
+        && isStudentEmail()
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.email == request.auth.token.email
+        && trNo == request.resource.data.trNo
+        && trMatchesEmail(trNo);
       allow delete: if false;
     }
 
@@ -87,6 +107,7 @@ service cloud.firestore {
       allow read: if isOwner(uid) || isAdmin();
 
       allow create: if isOwner(uid)
+        && isStudentEmail()
         && request.resource.data.uid == uid
         && request.resource.data.email == request.auth.token.email
         && trBelongsToRequestUser(request.resource.data.trNo)
@@ -96,6 +117,7 @@ service cloud.firestore {
         && !('reviewedBy' in request.resource.data);
 
       allow update: if isOwner(uid)
+        && isStudentEmail()
         && resource.data.status == 'pending'
         && trBelongsToRequestUser(request.resource.data.trNo)
         && studentOwnedKeysOnly();

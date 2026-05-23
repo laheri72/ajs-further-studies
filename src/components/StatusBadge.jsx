@@ -1,4 +1,9 @@
 export function StatusBadge({ status }) {
   const approved = status === 'approved';
-  return <span className={`status-badge ${approved ? 'approved' : 'pending'}`}>{approved ? 'Approved' : 'Pending'}</span>;
+  const pending = status === 'pending';
+  return (
+    <span className={`status-badge ${approved ? 'approved' : pending ? 'pending' : 'neutral'}`}>
+      {approved ? 'Approved' : pending ? 'Pending' : 'Not Submitted'}
+    </span>
+  );
 }

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Lock, Save } from 'lucide-react';
+import { CheckCircle2, Clock3, FileText, Lock, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
@@ -15,7 +15,15 @@ import {
 } from '../data/constants';
 import { useAuth } from '../context/AuthContext';
 import { getStudentRecord, saveStudentRegistration } from '../services/firestore';
-import { canStudentEdit, clearDraft, readDraft, saveDraft } from '../utils/registration';
+import {
+  canStudentEdit,
+  clearDraft,
+  isValidStudentEmail,
+  nameFromGoogleUser,
+  readDraft,
+  saveDraft,
+  trFromStudentEmail,
+} from '../utils/registration';
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
 import { ProfileLink } from './ProfileLink';
 
@@ -28,6 +36,7 @@ export function StudentPage() {
   }, [profile]);
 
   if (!user) return <AuthCard role="student" />;
+  if (!isValidStudentEmail(user.email)) return <ProfileLink onLinked={() => setLinked(true)} />;
   if (!linked || !profile?.trNo) return <ProfileLink onLinked={() => setLinked(true)} />;
   return <StudentDashboard />;
 }
@@ -38,12 +47,13 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
+  const [activeTab, setActiveTab] = useState('status');
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [values, setValues] = useState({
     ...EMPTY_REGISTRATION,
-    trNo: profile.trNo,
-    fullName: profile.fullName,
+    trNo: trFromStudentEmail(user.email),
+    fullName: profile.fullName || nameFromGoogleUser(user),
   });
 
   useEffect(() => {
@@ -52,13 +62,17 @@ function StudentDashboard() {
       const existing = await getStudentRecord(user.uid);
       if (!alive) return;
       const draft = readDraft(user.uid);
+      const identity = {
+        trNo: trFromStudentEmail(user.email),
+        fullName: profile.fullName || nameFromGoogleUser(user),
+      };
       setRecord(existing);
       setValues({
         ...EMPTY_REGISTRATION,
-        trNo: profile.trNo,
-        fullName: profile.fullName,
+        ...identity,
         ...(existing || {}),
         ...(existing?.status === 'approved' ? {} : draft || {}),
+        ...identity,
       });
       setLoading(false);
     }
@@ -66,7 +80,7 @@ function StudentDashboard() {
     return () => {
       alive = false;
     };
-  }, [user.uid, profile]);
+  }, [user, profile]);
 
   useEffect(() => {
     if (!loading && canStudentEdit(record)) saveDraft(user.uid, values);
@@ -126,85 +140,245 @@ function StudentDashboard() {
   return (
     <AppShell>
       <main className="container student-space">
-        {record ? <StatusPanel record={record} editable={editable} /> : null}
-        <header className="page-heading">
-          <p className="eyebrow">Student Registration</p>
-          <h1>{editable ? 'Further Studies Registration' : 'Approved Registration'}</h1>
-          <p>
-            {editable
-              ? 'Complete each section carefully. Your draft is saved locally on this device.'
-              : 'Your record has been approved by the Idara and is now read-only.'}
-          </p>
+        <header className="page-heading dashboard-heading">
+          <p className="eyebrow">Student Dashboard</p>
+          <h1>Further Studies Portal</h1>
+          <p>Track your raza status and manage your further-studies registration from one place.</p>
         </header>
-        <Stepper step={step} />
-        <section className={`panel ${editable ? '' : 'read-only'}`}>
-          {!editable ? (
-            <div className="notice success">
-              <Lock size={16} /> Approved records cannot be edited from the student portal.
-            </div>
-          ) : null}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18 }}
-            >
-              <StepContent
-                step={step}
-                values={values}
-                errors={errors}
-                stageLabels={stageLabels}
-                editable={editable}
-                patch={patch}
-                toggleArray={toggleArray}
-              />
-            </motion.div>
-          </AnimatePresence>
-          {message ? <div className={`notice ${message.includes('Unable') ? 'danger' : 'success'}`}>{message}</div> : null}
-          <div className="form-actions">
-            <button className="outline-button" type="button" onClick={prevStep} disabled={step === 0}>
-              Back
-            </button>
-            {step < 4 ? (
-              <button className="gold-button" type="button" onClick={nextStep}>
-                Continue
-              </button>
-            ) : (
-              <button className="gold-button" type="button" onClick={submit} disabled={!editable || saving}>
-                <Save size={16} />
-                {saving ? 'Saving...' : record ? 'Save Updates' : 'Submit Registration'}
-              </button>
-            )}
-          </div>
-        </section>
+
+        <DashboardTabs activeTab={activeTab} record={record} onChange={setActiveTab} />
+
+        {activeTab === 'status' ? (
+          <StatusLanding record={record} values={values} stageLabels={stageLabels} onOpenRegistration={() => setActiveTab('registration')} />
+        ) : null}
+
+        {activeTab === 'registration' ? (
+          <RegistrationTab
+            editable={editable}
+            errors={errors}
+            message={message}
+            record={record}
+            saving={saving}
+            stageLabels={stageLabels}
+            step={step}
+            values={values}
+            nextStep={nextStep}
+            patch={patch}
+            prevStep={prevStep}
+            submit={submit}
+            toggleArray={toggleArray}
+          />
+        ) : null}
       </main>
     </AppShell>
   );
 }
 
-function StatusPanel({ record, editable }) {
+function DashboardTabs({ activeTab, record, onChange }) {
+  const registrationLabel = record?.status === 'approved' ? 'Approved Registration' : 'Student Registration';
+
   return (
-    <section className={`status-panel ${record.status === 'approved' ? 'approved' : 'pending'}`}>
-      <div>
-        <p className="eyebrow">Raza Status</p>
-        <h2>{record.status === 'approved' ? 'Approved' : 'Pending Review'}</h2>
-        <p>
-          {record.status === 'approved'
-            ? 'This is a preliminary raza with regard to your programme. Final raza to attend examinations will be on JHS.'
-            : 'Your details are recorded. Please visit the Idara if you are close to examinations.'}
-        </p>
+    <nav className="dashboard-tabs" aria-label="Student dashboard sections">
+      <button
+        className={activeTab === 'status' ? 'active' : ''}
+        type="button"
+        onClick={() => onChange('status')}
+      >
+        <Clock3 size={16} />
+        Raza Status
+      </button>
+      <button
+        className={activeTab === 'registration' ? 'active' : ''}
+        type="button"
+        onClick={() => onChange('registration')}
+      >
+        <FileText size={16} />
+        {registrationLabel}
+      </button>
+      <button type="button" disabled>
+        v2 Modules
+      </button>
+    </nav>
+  );
+}
+
+function StatusLanding({ record, values, stageLabels, onOpenRegistration }) {
+  const approved = record?.status === 'approved';
+  const pending = record?.status === 'pending';
+  const statusTitle = approved ? 'Approved' : pending ? 'Pending Review' : 'Registration Not Submitted';
+
+  return (
+    <section className={`status-landing panel ${approved ? 'approved' : pending ? 'pending' : ''}`}>
+      <div className="status-hero">
+        <div className="status-copy">
+          <p className="eyebrow">Raza Status</p>
+          <h2>{statusTitle}</h2>
+          <p>
+            {approved
+              ? 'This is a preliminary raza with regard to your programme. Final raza to attend examinations will be on JHS.'
+              : pending
+                ? 'Your details are recorded and waiting for Idara review. Please visit the Idara if you are close to examinations.'
+                : 'Begin the registration so the Idara can review your further-studies details.'}
+          </p>
+        </div>
+        <StatusBadge status={record?.status || 'not submitted'} />
       </div>
-      <StatusBadge status={record.status} />
-      {record.adminNotes ? (
+
+      {record?.adminNotes ? (
         <div className="admin-note">
           <span>Notes from Idara</span>
           <p>{record.adminNotes}</p>
         </div>
       ) : null}
-      {!editable ? <div className="read-only-line">Approved records are locked for student editing.</div> : null}
+
+      <div className="status-summary-grid">
+        <SummaryTile label="TR Number" value={values.trNo} />
+        <SummaryTile label="Student" value={values.fullName} />
+        <SummaryTile label="Programme" value={values.degreeApplying || 'Not provided'} />
+        <SummaryTile label="Stage" value={stageLabels[values.stage] || 'Not selected'} />
+      </div>
+
+      <div className="status-actions">
+        {approved ? (
+          <div className="notice success">
+            <Lock size={16} />
+            Your approved registration is locked. You can view the submitted details in the registration tab.
+          </div>
+        ) : (
+          <button className="gold-button" type="button" onClick={onOpenRegistration}>
+            <FileText size={16} />
+            {pending ? 'View or Update Registration' : 'Start Registration'}
+          </button>
+        )}
+      </div>
     </section>
+  );
+}
+
+function SummaryTile({ label, value }) {
+  return (
+    <div className="summary-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function RegistrationTab({
+  editable,
+  errors,
+  message,
+  record,
+  saving,
+  stageLabels,
+  step,
+  values,
+  nextStep,
+  patch,
+  prevStep,
+  submit,
+  toggleArray,
+}) {
+  if (!editable) {
+    return (
+      <section className="panel read-only approved-summary-panel">
+        <div className="section-heading">
+          <p className="eyebrow">Approved Registration</p>
+          <h2>Submitted Details</h2>
+          <p>Your registration has been approved by the Idara and is now read-only.</p>
+        </div>
+        <div className="notice success">
+          <Lock size={16} /> Approved records cannot be edited from the student portal.
+        </div>
+        <RegistrationSummary values={values} stageLabels={stageLabels} />
+        {record?.adminNotes ? (
+          <div className="admin-note standalone">
+            <span>Notes from Idara</span>
+            <p>{record.adminNotes}</p>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <div className="section-heading registration-heading">
+        <p className="eyebrow">Student Registration</p>
+        <h2>{record ? 'Update Registration' : 'Further Studies Registration'}</h2>
+        <p>Complete each section carefully. Your draft is saved locally on this device.</p>
+      </div>
+      <Stepper step={step} />
+      <section className="panel">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <StepContent
+              step={step}
+              values={values}
+              errors={errors}
+              stageLabels={stageLabels}
+              editable={editable}
+              patch={patch}
+              toggleArray={toggleArray}
+            />
+          </motion.div>
+        </AnimatePresence>
+        {message ? <div className={`notice ${message.includes('Unable') ? 'danger' : 'success'}`}>{message}</div> : null}
+        <div className="form-actions">
+          <button className="outline-button" type="button" onClick={prevStep} disabled={step === 0}>
+            Back
+          </button>
+          {step < 4 ? (
+            <button className="gold-button" type="button" onClick={nextStep}>
+              Continue
+            </button>
+          ) : (
+            <button className="gold-button" type="button" onClick={submit} disabled={saving}>
+              <Save size={16} />
+              {saving ? 'Saving...' : record ? 'Save Updates' : 'Submit Registration'}
+            </button>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function RegistrationSummary({ values, stageLabels }) {
+  const rows = [
+    ['TR Number', values.trNo],
+    ['Full Name', values.fullName],
+    ['Qualifications', values.qualifications.join(', ')],
+    ['Other Qualification', values.otherQual],
+    ['Pursuing Next Qualification', values.hasThoughtAboutNext ? 'Yes' : 'No'],
+    ['Stage', stageLabels[values.stage]],
+    ['Requires Idara Assistance', values.requiresAssistance === null ? '' : values.requiresAssistance ? 'Yes' : 'No'],
+    ['Degree / Programme', values.degreeApplying],
+    ['Institution', values.institution],
+    ['Study Commitment', values.studyCommitment],
+    ['Raza Days', values.razaDays ? `${values.razaDays} days` : ''],
+    ['Exam Months', values.examMonths.join(', ')],
+    ['Miqaat / Jamea Clash', values.clashWithMiqaat ? 'Yes' : 'No'],
+    ['Clash Events', values.clashEvents.join(', ')],
+    ['Clash Details', values.clashDetails],
+    ['Additional Notes', values.additionalNotes],
+  ].filter(([, value]) => value);
+
+  return (
+    <div className="review-list summary-list">
+      {rows.map(([label, value]) => (
+        <div className="review-row" key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -225,18 +399,20 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
   if (step === 0) {
     return (
       <div className="form-section">
-        <h2>Student Details</h2>
-        <div className="form-grid">
-          <label>
-            TR Number
-            <input value={values.trNo} readOnly />
-          </label>
-          <label>
-            Full Name
-            <input value={values.fullName} readOnly />
-          </label>
+        <h2>Confirm Identity</h2>
+        <div className="identity-summary compact">
+          <div>
+            <span>TR Number</span>
+            <strong>{values.trNo}</strong>
+          </div>
+          <div>
+            <span>Full Name</span>
+            <strong>{values.fullName}</strong>
+          </div>
         </div>
-        <p className="muted">These fields are linked to your Google account profile.</p>
+        <p className="muted">
+          This TR number is derived from your official education email and cannot be edited here.
+        </p>
       </div>
     );
   }

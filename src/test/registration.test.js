@@ -3,14 +3,16 @@ import { EMPTY_REGISTRATION } from '../data/constants';
 import {
   canStudentEdit,
   filterStudents,
+  isValidStudentEmail,
   normalizeTrNo,
   routeForAuthState,
   statsForStudents,
   studentWritablePayload,
+  trFromStudentEmail,
 } from '../utils/registration';
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
 
-const user = { uid: 'uid-1', email: 'student@example.com' };
+const user = { uid: 'uid-1', email: '25687@jameasaifiyah.edu' };
 const profile = { trNo: 'TR100', fullName: 'Student One' };
 
 function validValues(overrides = {}) {
@@ -36,6 +38,13 @@ describe('registration helpers', () => {
     expect(normalizeTrNo(' tr 123 ')).toBe('TR123');
   });
 
+  it('accepts only five-digit education emails and derives TR', () => {
+    expect(isValidStudentEmail('25687@jameasaifiyah.edu')).toBe(true);
+    expect(isValidStudentEmail('idrislaheri72@gmail.com')).toBe(false);
+    expect(isValidStudentEmail('abcde@jameasaifiyah.edu')).toBe(false);
+    expect(trFromStudentEmail('25687@jameasaifiyah.edu')).toBe('25687');
+  });
+
   it('keeps admin-owned fields out of student payloads', () => {
     const payload = studentWritablePayload(
       validValues({ status: 'approved', adminNotes: 'hidden', reviewedAt: 'date', reviewedBy: 'admin' }),
@@ -48,6 +57,7 @@ describe('registration helpers', () => {
     expect(payload).not.toHaveProperty('reviewedAt');
     expect(payload).not.toHaveProperty('reviewedBy');
     expect(payload.uid).toBe(user.uid);
+    expect(payload.trNo).toBe('25687');
   });
 
   it('allows student edits only before approval', () => {

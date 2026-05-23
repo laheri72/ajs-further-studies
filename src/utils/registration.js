@@ -1,7 +1,23 @@
 import { ADMIN_OWNED_FIELDS, EMPTY_REGISTRATION, FORM_VERSION } from '../data/constants';
 
+export const STUDENT_EMAIL_DOMAIN = '@jameasaifiyah.edu';
+export const STUDENT_EMAIL_PATTERN = /^[0-9]{5}@jameasaifiyah\.edu$/i;
+
 export function normalizeTrNo(value) {
   return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+export function isValidStudentEmail(email) {
+  return STUDENT_EMAIL_PATTERN.test(String(email || '').trim());
+}
+
+export function trFromStudentEmail(email) {
+  if (!isValidStudentEmail(email)) return '';
+  return String(email).trim().slice(0, 5);
+}
+
+export function nameFromGoogleUser(user) {
+  return String(user?.displayName || '').trim() || `Student ${trFromStudentEmail(user?.email)}`;
 }
 
 export function draftKey(uid) {
@@ -29,12 +45,13 @@ export function clearDraft(uid) {
 }
 
 export function studentWritablePayload(values, profile, user) {
+  const trNo = trFromStudentEmail(user.email);
   const payload = {
     ...EMPTY_REGISTRATION,
     ...values,
     uid: user.uid,
     email: user.email,
-    trNo: normalizeTrNo(values.trNo || profile?.trNo),
+    trNo,
     fullName: String(values.fullName || profile?.fullName || '').trim(),
     razaDays: Number(values.razaDays || 0),
   };

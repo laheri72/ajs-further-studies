@@ -1,6 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Footer } from './Footer';
 
 export function AppShell({ children, title = 'Further Studies Portal' }) {
   const { user, profile, signOutUser } = useAuth();
@@ -24,6 +25,7 @@ export function AppShell({ children, title = 'Further Studies Portal' }) {
         ) : null}
       </nav>
       {children}
+      <Footer />
     </div>
   );
 }

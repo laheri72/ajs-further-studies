@@ -11,15 +11,19 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { normalizeTrNo, studentWritablePayload } from '../utils/registration';
+import { isValidStudentEmail, nameFromGoogleUser, studentWritablePayload, trFromStudentEmail } from '../utils/registration';
 
 export async function getProfile(uid) {
   const snapshot = await getDoc(doc(db, 'users', uid));
   return snapshot.exists() ? snapshot.data() : null;
 }
 
-export async function linkStudentProfile(user, values) {
-  const trNo = normalizeTrNo(values.trNo);
+export async function linkStudentProfile(user) {
+  if (!isValidStudentEmail(user.email)) {
+    throw new Error('Please sign in with your Jamea Saifiyah education account.');
+  }
+
+  const trNo = trFromStudentEmail(user.email);
   const trRef = doc(db, 'trIndex', trNo);
   const userRef = doc(db, 'users', user.uid);
 
@@ -41,7 +45,7 @@ export async function linkStudentProfile(user, values) {
       {
         uid: user.uid,
         trNo,
-        fullName: values.fullName.trim(),
+        fullName: nameFromGoogleUser(user),
         email: user.email,
         photoURL: user.photoURL || '',
         updatedAt: serverTimestamp(),

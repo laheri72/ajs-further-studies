@@ -17,5 +17,12 @@ const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
 
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export function createGoogleProvider({ hostedDomain } = {}) {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({
+    prompt: 'select_account',
+    ...(hostedDomain ? { hd: hostedDomain } : {}),
+  });
+  return provider;
+}

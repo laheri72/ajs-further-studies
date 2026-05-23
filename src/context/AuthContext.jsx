@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { auth, googleProvider, hasFirebaseConfig } from '../services/firebase';
+import { auth, createGoogleProvider, hasFirebaseConfig } from '../services/firebase';
 import { getProfile, isWhitelistedAdmin } from '../services/firestore';
 
 const AuthContext = createContext(null);
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  const signInWithGoogle = useCallback(async function signInWithGoogle() {
+  const signInWithGoogle = useCallback(async function signInWithGoogle(options = {}) {
     if (!hasFirebaseConfig) {
       setError('Firebase is not configured. Add your VITE_FIREBASE values to .env.');
       return;
@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
 
     try {
       setError('');
-      await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(auth, createGoogleProvider(options));
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') {
         setError(err.message || 'Google sign-in failed.');
