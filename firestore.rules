@@ -51,6 +51,14 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/trIndex/$(trNo)).data.uid == request.auth.uid;
     }
 
+    function validTashjeeStatus(value) {
+      return value in ['pending', 'approved', 'rejected'];
+    }
+
+    function validTashjeeUrl(url) {
+      return url is string && url.matches('^https://res\\.cloudinary\\.com/.+\\.(jpg|jpeg|png|webp)$');
+    }
+
     function studentResubmissionKeysOnly() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
@@ -83,6 +91,38 @@ service cloud.firestore {
     match /admins/{email} {
       allow read: if isAdmin() || (signedIn() && request.auth.token.email == email);
       allow write: if isAdmin();
+    }
+
+    match /tashjee_config/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /tashjee_requests/{requestId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if signedIn()
+        && isStudentEmail()
+        && request.resource.data.requestId == requestId
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.studentName is string
+        && request.resource.data.requestType is string
+        && request.resource.data.detailedReason is string
+        && validTashjeeUrl(request.resource.data.proofUrl)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.adminRemarks == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && validTashjeeStatus(request.resource.data.status)
+        && request.resource.data.adminRemarks is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'adminRemarks', 'updatedAt']);
+
+      allow delete: if isAdmin()
+        || (signedIn()
+          && resource.data.studentId == request.auth.uid
+          && resource.data.status in ['pending', 'on-hold']);
     }
 
     match /users/{uid} {

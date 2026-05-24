@@ -30,6 +30,7 @@ import {
 } from '../utils/registration';
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
 import { ProfileLink } from './ProfileLink';
+import { TashjeeStudentTab } from './TashjeeStudentTab';
 
 export function StudentPage() {
   const { user, profile } = useAuth();
@@ -177,6 +178,8 @@ function StudentDashboard() {
             toggleArray={toggleArray}
           />
         ) : null}
+
+        {activeTab === 'tashjee' ? <TashjeeStudentTab user={user} profile={profile} /> : null}
       </main>
     </AppShell>
   );
@@ -202,6 +205,10 @@ function DashboardTabs({ activeTab, record, onChange }) {
       >
         <FileText size={16} />
         {registrationLabel}
+      </button>
+      <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => onChange('tashjee')}>
+        <FileText size={16} />
+        Tashjee Request
       </button>
       <button type="button" disabled>
         v2 Modules

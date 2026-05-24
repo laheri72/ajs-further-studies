@@ -1,13 +1,13 @@
 import { AlertCircle, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
-import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { clearStudentRegistration, getAllStudents, updateStudentReview } from '../services/firestore';
 import { filterStudents, statsForStudents } from '../utils/registration';
+import { TashjeeAdminPanel } from './TashjeeAdminPanel';
 
 export function AdminPage() {
   const { user, isAdmin } = useAuth();
@@ -19,12 +19,14 @@ export function AdminPage() {
 
 function AdminDashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
+  const activeTab = searchParams.get('tab') === 'tashjee' ? 'tashjee' : 'records';
 
   async function load() {
     setLoading(true);
@@ -45,8 +47,6 @@ function AdminDashboard() {
   const filtered = useMemo(() => filterStudents(students, query, status), [students, query, status]);
   const stats = useMemo(() => statsForStudents(students), [students]);
 
-  if (loading) return <Loading label="Loading admin dashboard" />;
-
   return (
     <AppShell title="Admin Dashboard">
       <main className="container wide admin-space">
@@ -61,77 +61,94 @@ function AdminDashboard() {
           </button>
         </header>
 
-        <section className="stats-grid">
-          <StatCard label="Total Students" value={stats.total} tone="gold" />
-          <StatCard label="Pending" value={stats.pending} tone="warning" />
-          <StatCard label="On Hold" value={stats.onHold} tone="hold" />
-          <StatCard label="Approved" value={stats.approved} tone="success" />
-          <StatCard label="Miqaat Clashes" value={stats.clashes} tone="danger" />
-        </section>
+        <nav className="dashboard-tabs admin-tabs" aria-label="Admin dashboard sections">
+          <button className={activeTab === 'records' ? 'active' : ''} type="button" onClick={() => setSearchParams({}, { replace: true })}>
+            Student Records
+          </button>
+          <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'tashjee' }, { replace: true })}>
+            Tashjee Management
+          </button>
+        </nav>
 
-        <section className="admin-tools">
-          <label className="search-box">
-            <Search size={17} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by TR, name, email, degree, institution"
-            />
-          </label>
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="on-hold">On Hold</option>
-            <option value="approved">Approved</option>
-          </select>
-        </section>
-
-        {error ? <div className="notice danger">{error}</div> : null}
-
-        <section className="table-wrap">
-          {filtered.length ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>TR</th>
-                  <th>Student</th>
-                  <th>Email</th>
-                  <th>Degree</th>
-                  <th>Exams</th>
-                  <th>Clash</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((student) => (
-                  <tr key={student.id}>
-                    <td className="gold-text">{student.trNo}</td>
-                    <td>{student.fullName}</td>
-                    <td className="muted-cell">{student.email}</td>
-                    <td>{student.degreeApplying || '-'}</td>
-                    <td>{student.examMonths?.slice(0, 3).join(', ') || '-'}</td>
-                    <td>{student.clashWithMiqaat ? <span className="danger-text">Yes</span> : '-'}</td>
-                    <td>
-                      <StatusBadge status={student.status} />
-                    </td>
-                    <td>
-                      <button className="outline-button small" type="button" onClick={() => setSelected(student)}>
-                        Manage
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {activeTab === 'records' ? (
+          loading ? (
+            <div className="empty-state">Loading student records...</div>
           ) : (
-            <div className="empty-state">
-              {students.length ? 'No records match your search.' : 'No student registrations yet.'}
-            </div>
-          )}
-        </section>
+            <>
+              <section className="stats-grid">
+                <StatCard label="Total Students" value={stats.total} tone="gold" />
+                <StatCard label="Pending" value={stats.pending} tone="warning" />
+                <StatCard label="On Hold" value={stats.onHold} tone="hold" />
+                <StatCard label="Approved" value={stats.approved} tone="success" />
+                <StatCard label="Miqaat Clashes" value={stats.clashes} tone="danger" />
+              </section>
+
+              <section className="admin-tools">
+                <label className="search-box">
+                  <Search size={17} />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search by TR, name, email, degree, institution"
+                  />
+                </label>
+                <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="on-hold">On Hold</option>
+                  <option value="approved">Approved</option>
+                </select>
+              </section>
+
+              {error ? <div className="notice danger">{error}</div> : null}
+
+              <section className="table-wrap">
+                {filtered.length ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>TR</th>
+                        <th>Student</th>
+                        <th>Raza Days / Year</th>
+                        <th>Degree</th>
+                        <th>Exams</th>
+                        <th>Clash</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((student) => (
+                        <tr key={student.id}>
+                          <td className="gold-text">{student.trNo}</td>
+                          <td>{student.fullName}</td>
+                          <td className="muted-cell">{student.razaDays ? `${student.razaDays} days` : '-'}</td>
+                          <td>{student.degreeApplying || '-'}</td>
+                          <td>{student.examMonths?.slice(0, 3).join(', ') || '-'}</td>
+                          <td>{student.clashWithMiqaat ? <span className="danger-text">Yes</span> : '-'}</td>
+                          <td>
+                            <StatusBadge status={student.status} />
+                          </td>
+                          <td>
+                            <button className="outline-button small" type="button" onClick={() => setSelected(student)}>
+                              Manage
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="empty-state">{students.length ? 'No records match your search.' : 'No student registrations yet.'}</div>
+                )}
+              </section>
+            </>
+          )
+        ) : (
+          <TashjeeAdminPanel />
+        )}
       </main>
-      {selected ? (
+      {activeTab === 'records' && selected ? (
         <ReviewModal
           student={selected}
           reviewer={user}
