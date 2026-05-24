@@ -11,3 +11,4 @@ firebase-debug.log*
 yarn-debug.log*
 yarn-error.log*
 vite-dev*.log
+.firebase/hosting.*.cache
