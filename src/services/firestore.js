@@ -94,8 +94,53 @@ export async function saveStudentRegistration(user, profile, values, existingRec
 
 export async function isWhitelistedAdmin(email) {
   if (!email) return false;
-  const snapshot = await getDoc(doc(db, 'admins', email));
+  const snapshot = await getDoc(doc(db, 'admins', email.trim().toLowerCase()));
   return snapshot.exists() && snapshot.data().active === true;
+}
+
+export async function getAdmins() {
+  const snapshot = await getDocs(collection(db, 'admins'));
+  return snapshot.docs
+    .map((record) => {
+      const data = record.data();
+      return {
+        id: record.id,
+        ...data,
+        email: data.email || record.id,
+        displayName: data.displayName || '',
+      };
+    })
+    .sort((first, second) => first.email.localeCompare(second.email));
+}
+
+export async function addAdmin(email, actor, displayName = '') {
+  const normalizedEmail = email.trim().toLowerCase();
+  const adminRef = doc(db, 'admins', normalizedEmail);
+  const snapshot = await getDoc(adminRef);
+  const payload = {
+    email: normalizedEmail,
+    displayName: displayName.trim(),
+    active: true,
+    updatedAt: serverTimestamp(),
+    updatedBy: actor.email,
+  };
+
+  if (snapshot.exists()) {
+    await updateDoc(adminRef, payload);
+    return { id: normalizedEmail, ...snapshot.data(), ...payload, active: true };
+  }
+
+  await setDoc(adminRef, {
+    ...payload,
+    createdAt: serverTimestamp(),
+    createdBy: actor.email,
+  });
+  return { id: normalizedEmail, ...payload, createdBy: actor.email };
+}
+
+export async function deleteAdmin(email) {
+  const normalizedEmail = email.trim().toLowerCase();
+  await deleteDoc(doc(db, 'admins', normalizedEmail));
 }
 
 export async function getAllStudents() {

@@ -1,18 +1,39 @@
-import { AlertCircle, Search, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertCircle, Search, ShieldCheck, Trash2, UserPlus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
+import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { clearStudentRegistration, getAllStudents, updateStudentReview } from '../services/firestore';
+import { addAdmin, clearStudentRegistration, deleteAdmin, getAdmins, getAllStudents, updateStudentReview } from '../services/firestore';
 import { filterStudents, statsForStudents } from '../utils/registration';
 import { TashjeeAdminPanel } from './TashjeeAdminPanel';
 
+const MAIN_ADMIN_EMAIL = 'idrislaheri72@gmail.com';
+
 export function AdminPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, refreshAccount } = useAuth();
+  const [checkedFreshAccessFor, setCheckedFreshAccessFor] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    if (!user || isAdmin || checkedFreshAccessFor === user.email) return undefined;
+
+    refreshAccount(user)
+      .catch(() => null)
+      .finally(() => {
+        if (active) setCheckedFreshAccessFor(user.email);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [checkedFreshAccessFor, isAdmin, refreshAccount, user]);
 
   if (!user) return <AuthCard role="admin" />;
+  if (!isAdmin && checkedFreshAccessFor !== user.email) return <Loading />;
   if (!isAdmin) return <Navigate to="/unauthorized" replace />;
   return <AdminDashboard />;
 }
@@ -20,13 +41,15 @@ export function AdminPage() {
 function AdminDashboard() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const canManageAdmins = user?.email?.toLowerCase() === MAIN_ADMIN_EMAIL;
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
-  const activeTab = searchParams.get('tab') === 'tashjee' ? 'tashjee' : 'records';
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'tashjee' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'records';
 
   async function load() {
     setLoading(true);
@@ -68,6 +91,11 @@ function AdminDashboard() {
           <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'tashjee' }, { replace: true })}>
             Tashjee Management
           </button>
+          {canManageAdmins ? (
+            <button className={activeTab === 'access' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'access' }, { replace: true })}>
+              Admin Access
+            </button>
+          ) : null}
         </nav>
 
         {activeTab === 'records' ? (
@@ -144,8 +172,10 @@ function AdminDashboard() {
               </section>
             </>
           )
-        ) : (
+        ) : activeTab === 'tashjee' ? (
           <TashjeeAdminPanel />
+        ) : (
+          <AdminAccessPanel currentUser={user} />
         )}
       </main>
       {activeTab === 'records' && selected ? (
@@ -173,6 +203,156 @@ function StatCard({ label, value, tone }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function AdminAccessPanel({ currentUser }) {
+  const [admins, setAdmins] = useState([]);
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState({ type: '', message: '' });
+
+  async function loadAdmins() {
+    setLoading(true);
+    setNotice({ type: '', message: '' });
+    try {
+      setAdmins(await getAdmins());
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to load admin access list.' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAdmins();
+  }, []);
+
+  async function submitAdmin(event) {
+    event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setNotice({ type: 'danger', message: 'Enter a valid Google account email address.' });
+      return;
+    }
+
+    setSaving(true);
+    setNotice({ type: '', message: '' });
+    try {
+      await addAdmin(normalizedEmail, currentUser, displayName);
+      await loadAdmins();
+      setEmail('');
+      setDisplayName('');
+      setNotice({ type: 'success', message: `${normalizedEmail} can now sign in from the admin portal with Google.` });
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to add admin access.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeAdmin(admin) {
+    if (admin.email === MAIN_ADMIN_EMAIL) {
+      setNotice({ type: 'danger', message: 'The main admin account cannot be removed from this panel.' });
+      return;
+    }
+
+    const confirmed = window.confirm(`Remove admin access for ${admin.email}? They will no longer be able to open the admin portal.`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    setNotice({ type: '', message: '' });
+    try {
+      await deleteAdmin(admin.email);
+      setAdmins((current) => current.filter((item) => item.id !== admin.id));
+      setNotice({ type: 'success', message: `${admin.email} admin access was removed.` });
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to remove admin access.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const activeAdmins = admins.filter((admin) => admin.active !== false).length;
+
+  return (
+    <section className="admin-access-panel">
+      <div className="admin-access-grid">
+        <form className="panel admin-access-form" onSubmit={submitAdmin}>
+          <div className="section-heading">
+            <p className="eyebrow">Google Auth</p>
+            <h2>Add Admin</h2>
+            <p>Give a trusted Google account access to review records and manage Idara workflows.</p>
+          </div>
+
+          <label>
+            Admin email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" />
+          </label>
+
+          <label>
+            Name or role
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Optional" />
+          </label>
+
+          <button className="gold-button" type="submit" disabled={saving}>
+            <UserPlus size={16} />
+            {saving ? 'Saving...' : 'Add Admin'}
+          </button>
+        </form>
+
+        <div className="panel admin-access-summary">
+          <span>Active Admins</span>
+          <strong>{activeAdmins}</strong>
+          <p>Access is checked after Google sign-in against the Firestore admin allowlist.</p>
+          <button className="outline-button" type="button" onClick={loadAdmins} disabled={loading || saving}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {notice.message ? <div className={`notice ${notice.type}`}>{notice.message}</div> : null}
+
+      <section className="table-wrap">
+        {loading ? (
+          <div className="empty-state">Loading admin access...</div>
+        ) : admins.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name / Role</th>
+                <th>Updated By</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {admins.map((admin) => {
+                const isSelf = admin.email === currentUser.email;
+                return (
+                  <tr key={admin.id}>
+                    <td className="gold-text">{admin.email}</td>
+                    <td>{admin.displayName || '-'}</td>
+                    <td className="muted-cell">{admin.updatedBy || admin.createdBy || '-'}</td>
+                    <td>
+                      <button className="danger-button small" type="button" onClick={() => removeAdmin(admin)} disabled={saving || isSelf || admin.email === MAIN_ADMIN_EMAIL}>
+                        <Trash2 size={14} />
+                        Delete Access
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty-state">No admin records found.</div>
+        )}
+      </section>
+    </section>
   );
 }
 

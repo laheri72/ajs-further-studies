@@ -12,6 +12,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(hasFirebaseConfig);
   const [error, setError] = useState('');
 
+  const refreshAccount = useCallback(async function refreshAccount(nextUser = auth?.currentUser) {
+    if (!nextUser) return { profile: null, isAdmin: false };
+
+    const [nextProfile, adminStatus] = await Promise.all([
+      getProfile(nextUser.uid),
+      isWhitelistedAdmin(nextUser.email),
+    ]);
+    setProfile(nextProfile);
+    setIsAdmin(adminStatus);
+    return { profile: nextProfile, isAdmin: adminStatus };
+  }, []);
+
   useEffect(() => {
     if (!hasFirebaseConfig) return undefined;
 
@@ -28,19 +40,14 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const [nextProfile, adminStatus] = await Promise.all([
-          getProfile(nextUser.uid),
-          isWhitelistedAdmin(nextUser.email),
-        ]);
-        setProfile(nextProfile);
-        setIsAdmin(adminStatus);
+        await refreshAccount(nextUser);
       } catch (err) {
         setError(err.message || 'Unable to load account details.');
       } finally {
         setLoading(false);
       }
     });
-  }, []);
+  }, [refreshAccount]);
 
   const signInWithGoogle = useCallback(async function signInWithGoogle(options = {}) {
     if (!hasFirebaseConfig) {
@@ -83,9 +90,10 @@ export function AuthProvider({ children }) {
       signInWithGoogle,
       signOutUser,
       refreshProfile,
+      refreshAccount,
       setError,
     }),
-    [user, profile, isAdmin, loading, error, signInWithGoogle, signOutUser, refreshProfile],
+    [user, profile, isAdmin, loading, error, signInWithGoogle, signOutUser, refreshProfile, refreshAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

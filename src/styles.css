@@ -1080,6 +1080,53 @@ select option {
   margin-bottom: 16px;
 }
 
+.admin-access-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-access-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.admin-access-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-access-form .gold-button {
+  justify-self: start;
+}
+
+.admin-access-summary {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.admin-access-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-access-summary strong {
+  color: var(--gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 46px;
+  line-height: 1;
+}
+
+.admin-access-summary p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
 .search-box {
   position: relative;
   display: block;
@@ -1734,6 +1781,7 @@ tr:hover td {
   .status-hero,
   .status-summary-grid,
   .admin-tools,
+  .admin-access-grid,
   .detail-grid,
   .identity-summary.compact {
     grid-template-columns: 1fr;

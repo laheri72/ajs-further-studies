@@ -21,6 +21,10 @@ service cloud.firestore {
         && get(adminDoc()).data.active == true;
     }
 
+    function isSuperAdmin() {
+      return isAdmin() && request.auth.token.email == 'idrislaheri72@gmail.com';
+    }
+
     function validStatus(value) {
       return value in ['pending', 'on-hold', 'approved'];
     }
@@ -89,8 +93,35 @@ service cloud.firestore {
     }
 
     match /admins/{email} {
-      allow read: if isAdmin() || (signedIn() && request.auth.token.email == email);
-      allow write: if isAdmin();
+      allow read: if isSuperAdmin() || (signedIn() && request.auth.token.email == email);
+      allow create: if isSuperAdmin()
+        && request.resource.data.email == email
+        && request.resource.data.active is bool
+        && request.resource.data.active == true
+        && request.resource.data.displayName is string
+        && request.resource.data.createdBy == request.auth.token.email
+        && request.resource.data.updatedBy == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'email',
+          'displayName',
+          'active',
+          'createdAt',
+          'createdBy',
+          'updatedAt',
+          'updatedBy'
+        ]);
+      allow update: if isSuperAdmin()
+        && request.resource.data.email == email
+        && request.resource.data.active is bool
+        && request.resource.data.active == true
+        && request.resource.data.displayName is string
+        && request.resource.data.updatedBy == request.auth.token.email
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['active', 'displayName', 'email', 'updatedAt', 'updatedBy']);
+      allow delete: if isSuperAdmin() && email != 'idrislaheri72@gmail.com';
     }
 
     match /tashjee_config/{docId} {
