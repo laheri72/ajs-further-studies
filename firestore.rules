@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function adminDoc() {
-      return /databases/$(database)/documents/admins/$(request.auth.token.email);
+      return /databases/$(database)/documents/admins/$(request.auth.token.email.lower());
     }
 
     function isAdmin() {
@@ -28,7 +28,7 @@ service cloud.firestore {
     function isWhitelistedStudent() {
       return signedIn()
         && request.auth.token.email is string
-        && exists(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email.lower()));
     }
 
     function validStatus(value) {
@@ -45,15 +45,15 @@ service cloud.firestore {
     function isStudentEmail() {
       return signedIn()
         && request.auth.token.email is string
-        && (request.auth.token.email.matches('^[0-9]{5}@jameasaifiyah\\.edu$') || isWhitelistedStudent());
+        && (request.auth.token.email.lower().matches('^[0-9]{5}@jameasaifiyah\\.edu$') || isWhitelistedStudent());
     }
 
     function trMatchesEmail(trNo) {
       return trNo is string
         && trNo.matches('^[0-9]{5}$')
-        && (trNo + '@jameasaifiyah.edu' == request.auth.token.email
+        && (trNo + '@jameasaifiyah.edu' == request.auth.token.email.lower()
             || (isWhitelistedStudent() 
-                && get(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email)).data.trNo == trNo));
+                && get(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email.lower())).data.trNo == trNo));
     }
 
     function trBelongsToRequestUser(trNo) {
@@ -101,7 +101,7 @@ service cloud.firestore {
     }
 
     match /admins/{email} {
-      allow read: if isSuperAdmin() || (signedIn() && request.auth.token.email == email);
+      allow read: if isSuperAdmin() || (signedIn() && request.auth.token.email.lower() == email.lower());
       allow create: if isSuperAdmin()
         && request.resource.data.email == email
         && request.resource.data.active is bool
@@ -133,7 +133,7 @@ service cloud.firestore {
     }
 
     match /student_whitelist/{email} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (signedIn() && request.auth.token.email.lower() == email.lower());
       allow write: if isSuperAdmin();
     }
 

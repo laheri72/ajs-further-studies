@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Clock3, FileText, Lock, Save } from 'lucide-react';
+import { CheckCircle2, Clock3, FileText, Lock, Save, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
@@ -33,7 +34,7 @@ import { ProfileLink } from './ProfileLink';
 import { TashjeeStudentTab } from './TashjeeStudentTab';
 
 export function StudentPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const [linked, setLinked] = useState(Boolean(profile?.trNo));
 
   useEffect(() => {
@@ -42,10 +43,10 @@ export function StudentPage() {
 
   if (!user) return <AuthCard role="student" />;
   if (!linked || !profile?.trNo) return <ProfileLink onLinked={() => setLinked(true)} />;
-  return <StudentDashboard />;
+  return <StudentDashboard isAdmin={isAdmin} />;
 }
 
-function StudentDashboard() {
+function StudentDashboard({ isAdmin }) {
   const { user, profile } = useAuth();
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -149,9 +150,17 @@ function StudentDashboard() {
     <AppShell>
       <main className="container student-space">
         <header className="page-heading dashboard-heading">
-          <p className="eyebrow">Student Dashboard</p>
-          <h1>Further Studies Portal</h1>
-          <p>Track your raza status and manage your further-studies registration from one place.</p>
+          <div>
+            <p className="eyebrow">Student Dashboard</p>
+            <h1>Further Studies Portal</h1>
+            <p>Track your raza status and manage your further-studies registration from one place.</p>
+          </div>
+          {isAdmin ? (
+            <Link className="outline-button" to="/admin" title="Go to admin dashboard">
+              <ShieldCheck size={16} />
+              Admin Portal
+            </Link>
+          ) : null}
         </header>
 
         <DashboardTabs activeTab={activeTab} record={record} onChange={setActiveTab} />

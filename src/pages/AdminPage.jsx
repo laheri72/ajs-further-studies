@@ -1,6 +1,6 @@
-import { AlertCircle, Search, ShieldCheck, Trash2, UserPlus, X } from 'lucide-react';
+import { AlertCircle, GraduationCap, Search, ShieldCheck, Trash2, UserPlus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
@@ -79,9 +79,15 @@ function AdminDashboard() {
             <h1>Student Records</h1>
             <p>Search, review, approve, and leave notes for students.</p>
           </div>
-          <button className="outline-button" type="button" onClick={load}>
-            Refresh
-          </button>
+          <div className="admin-header-actions">
+            <Link className="outline-button" to="/student" title="Go to my student registration">
+              <GraduationCap size={16} />
+              Student Portal
+            </Link>
+            <button className="outline-button" type="button" onClick={load}>
+              Refresh
+            </button>
+          </div>
         </header>
 
         <nav className="dashboard-tabs admin-tabs" aria-label="Admin dashboard sections">

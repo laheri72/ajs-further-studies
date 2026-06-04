@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Loading } from './components/Loading';
 import { useAuth } from './context/AuthContext';
+import { HomePage } from './pages/HomePage';
 import { AdminPage } from './pages/AdminPage';
 import { StudentPage } from './pages/StudentPage';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/student" element={<StudentPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      <Route path="/home" element={<HomePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
