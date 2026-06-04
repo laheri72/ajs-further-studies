@@ -6,7 +6,7 @@ import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { addAdmin, clearStudentRegistration, deleteAdmin, getAdmins, getAllStudents, updateStudentReview } from '../services/firestore';
+import { addAdmin, addWhitelistedStudent, clearStudentRegistration, deleteAdmin, deleteWhitelistedStudent, getAdmins, getAllStudents, getWhitelistedStudents, updateStudentReview } from '../services/firestore';
 import { filterStudents, statsForStudents } from '../utils/registration';
 import { TashjeeAdminPanel } from './TashjeeAdminPanel';
 
@@ -352,7 +352,168 @@ function AdminAccessPanel({ currentUser }) {
           <div className="empty-state">No admin records found.</div>
         )}
       </section>
+
+      <div style={{ marginTop: '4rem', marginBottom: '4rem', borderTop: '1px solid var(--border)' }} />
+
+      <WhitelistedStudentsPanel currentUser={currentUser} />
     </section>
+  );
+}
+
+function WhitelistedStudentsPanel({ currentUser }) {
+  const [students, setStudents] = useState([]);
+  const [email, setEmail] = useState('');
+  const [trNo, setTrNo] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState({ type: '', message: '' });
+
+  async function loadStudents() {
+    setLoading(true);
+    setNotice({ type: '', message: '' });
+    try {
+      setStudents(await getWhitelistedStudents());
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to load whitelisted students.' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  async function submitStudent(event) {
+    event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setNotice({ type: 'danger', message: 'Enter a valid Google account email address.' });
+      return;
+    }
+
+    if (!/^[0-9]{5}$/.test(trNo.trim())) {
+      setNotice({ type: 'danger', message: 'Enter a valid 5-digit TR number.' });
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setNotice({ type: 'danger', message: 'Enter the student\'s full name.' });
+      return;
+    }
+
+    setSaving(true);
+    setNotice({ type: '', message: '' });
+    try {
+      await addWhitelistedStudent(normalizedEmail, trNo, fullName, currentUser);
+      await loadStudents();
+      setEmail('');
+      setTrNo('');
+      setFullName('');
+      setNotice({ type: 'success', message: `${normalizedEmail} is now whitelisted for TR ${trNo}.` });
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to whitelist student.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeStudent(student) {
+    const confirmed = window.confirm(`Remove whitelist for ${student.email}? They will no longer be able to use this account for registration.`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    setNotice({ type: '', message: '' });
+    try {
+      await deleteWhitelistedStudent(student.email);
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+      setNotice({ type: 'success', message: `${student.email} was removed from the whitelist.` });
+    } catch (err) {
+      setNotice({ type: 'danger', message: err.message || 'Unable to remove student from whitelist.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="admin-access-grid">
+        <form className="panel admin-access-form" onSubmit={submitStudent}>
+          <div className="section-heading">
+            <p className="eyebrow">Manual Access</p>
+            <h2>Whitelist Student</h2>
+            <p>Allow a non-edu Google account to register as a student for a specific TR number.</p>
+          </div>
+
+          <label>
+            Student email (Google account)
+            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="student@gmail.com" autoComplete="email" />
+          </label>
+
+          <label>
+            TR Number
+            <input value={trNo} onChange={(event) => setTrNo(event.target.value)} placeholder="12345" />
+          </label>
+
+          <label>
+            Full Name
+            <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Full Name" />
+          </label>
+
+          <button className="gold-button" type="submit" disabled={saving}>
+            <UserPlus size={16} />
+            {saving ? 'Saving...' : 'Whitelist Student'}
+          </button>
+        </form>
+
+        <div className="panel admin-access-summary">
+          <span>Whitelisted Students</span>
+          <strong>{students.length}</strong>
+          <p>These students can sign in with any Google account and bypass the .edu restriction.</p>
+          <button className="outline-button" type="button" onClick={loadStudents} disabled={loading || saving}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {notice.message ? <div className={`notice ${notice.type}`}>{notice.message}</div> : null}
+
+      <section className="table-wrap">
+        {loading ? (
+          <div className="empty-state">Loading whitelist...</div>
+        ) : students.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>TR No</th>
+                <th>Email</th>
+                <th>Full Name</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student) => (
+                <tr key={student.id}>
+                  <td className="gold-text">{student.trNo}</td>
+                  <td>{student.email}</td>
+                  <td>{student.fullName}</td>
+                  <td>
+                    <button className="danger-button small" type="button" onClick={() => removeStudent(student)} disabled={saving}>
+                      <Trash2 size={14} />
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty-state">No whitelisted students found.</div>
+        )}
+      </section>
+    </>
   );
 }
 

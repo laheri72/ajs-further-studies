@@ -1,7 +1,9 @@
 import { CheckCircle2, Mail, ShieldAlert } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { linkStudentProfile } from '../services/firestore';
 import { isValidStudentEmail, nameFromGoogleUser, trFromStudentEmail } from '../utils/registration';
 
@@ -9,9 +11,33 @@ export function ProfileLink({ onLinked }) {
   const { user, refreshProfile, signOutUser } = useAuth();
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const validStudent = isValidStudentEmail(user?.email);
-  const trNo = trFromStudentEmail(user?.email);
-  const fullName = nameFromGoogleUser(user);
+  const [whitelistEntry, setWhitelistEntry] = useState(null);
+  const [checkingWhitelist, setCheckingWhitelist] = useState(!isValidStudentEmail(user?.email));
+
+  const validStudent = isValidStudentEmail(user?.email) || !!whitelistEntry;
+  const trNo = whitelistEntry ? whitelistEntry.trNo : trFromStudentEmail(user?.email);
+  const fullName = whitelistEntry?.fullName || nameFromGoogleUser(user);
+
+  useEffect(() => {
+    if (isValidStudentEmail(user?.email) || !user?.email) {
+      setCheckingWhitelist(false);
+      return;
+    }
+
+    let alive = true;
+    async function check() {
+      try {
+        const snap = await getDoc(doc(db, 'student_whitelist', user.email.toLowerCase()));
+        if (alive) setWhitelistEntry(snap.exists() ? snap.data() : null);
+      } catch (err) {
+        console.error('Whitelist check failed', err);
+      } finally {
+        if (alive) setCheckingWhitelist(false);
+      }
+    }
+    check();
+    return () => { alive = false; };
+  }, [user?.email]);
 
   async function confirmIdentity() {
     setSaving(true);
@@ -27,6 +53,20 @@ export function ProfileLink({ onLinked }) {
     }
   }
 
+  if (checkingWhitelist) {
+    return (
+      <AppShell>
+        <main className="center-layout">
+          <section className="panel narrow fade-up identity-card">
+            <p className="eyebrow">Student Identity</p>
+            <h1>Confirming...</h1>
+            <p className="muted">Checking account authorization.</p>
+          </section>
+        </main>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <main className="center-layout">
@@ -34,7 +74,9 @@ export function ProfileLink({ onLinked }) {
           <p className="eyebrow">Student Identity</p>
           <h1>Confirm Your Account</h1>
           <p className="muted">
-            Student access is limited to official Jamea Saifiyah EDU accounts.
+            {whitelistEntry 
+              ? 'Your account has been manually whitelisted by the superadmin.'
+              : 'Student access is limited to official Jamea Saifiyah EDU accounts.'}
           </p>
 
           {validStudent ? (
@@ -55,7 +97,9 @@ export function ProfileLink({ onLinked }) {
               </div>
               <div className="notice success">
                 <CheckCircle2 size={16} />
-                This account matches the university workspace format.
+                {whitelistEntry 
+                  ? 'Manual authorization found.'
+                  : 'This account matches the university workspace format.'}
               </div>
               {error ? <div className="notice danger">{error}</div> : null}
               <button className="gold-button full" type="button" onClick={confirmIdentity} disabled={saving}>

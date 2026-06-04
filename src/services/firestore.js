@@ -26,11 +26,21 @@ export async function getProfile(uid) {
 }
 
 export async function linkStudentProfile(user) {
+  let trNo = '';
+  let fullName = nameFromGoogleUser(user);
+
   if (!isValidStudentEmail(user.email)) {
-    throw new Error('Please sign in with your Jamea Saifiyah education account.');
+    const whitelistSnapshot = await getDoc(doc(db, 'student_whitelist', user.email.toLowerCase()));
+    if (!whitelistSnapshot.exists()) {
+      throw new Error('Please sign in with your Jamea Saifiyah education account.');
+    }
+    const data = whitelistSnapshot.data();
+    trNo = data.trNo;
+    if (data.fullName) fullName = data.fullName;
+  } else {
+    trNo = trFromStudentEmail(user.email);
   }
 
-  const trNo = trFromStudentEmail(user.email);
   const trRef = doc(db, 'trIndex', trNo);
   const userRef = doc(db, 'users', user.uid);
 
@@ -52,7 +62,7 @@ export async function linkStudentProfile(user) {
       {
         uid: user.uid,
         trNo,
-        fullName: nameFromGoogleUser(user),
+        fullName,
         email: user.email,
         photoURL: user.photoURL || '',
         updatedAt: serverTimestamp(),
@@ -141,6 +151,32 @@ export async function addAdmin(email, actor, displayName = '') {
 export async function deleteAdmin(email) {
   const normalizedEmail = email.trim().toLowerCase();
   await deleteDoc(doc(db, 'admins', normalizedEmail));
+}
+
+export async function getWhitelistedStudents() {
+  const snapshot = await getDocs(query(collection(db, 'student_whitelist'), orderBy('trNo')));
+  return snapshot.docs.map((record) => ({
+    id: record.id,
+    ...record.data(),
+    email: record.id,
+  }));
+}
+
+export async function addWhitelistedStudent(email, trNo, fullName, actor) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const docRef = doc(db, 'student_whitelist', normalizedEmail);
+  const payload = {
+    trNo: trNo.trim(),
+    fullName: fullName.trim(),
+    addedBy: actor.email,
+    addedAt: serverTimestamp(),
+  };
+  await setDoc(docRef, payload);
+  return { id: normalizedEmail, email: normalizedEmail, ...payload };
+}
+
+export async function deleteWhitelistedStudent(email) {
+  await deleteDoc(doc(db, 'student_whitelist', email.trim().toLowerCase()));
 }
 
 export async function getAllStudents() {

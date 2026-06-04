@@ -23,11 +23,7 @@ export function AuthCard({ role }) {
           <button
             className="google-button"
             type="button"
-            onClick={() =>
-              signInWithGoogle({
-                hostedDomain: isAdmin ? undefined : STUDENT_EMAIL_DOMAIN.slice(1),
-              })
-            }
+            onClick={() => signInWithGoogle()}
           >
             <GoogleIcon />
             Continue with Google

@@ -41,7 +41,6 @@ export function StudentPage() {
   }, [profile]);
 
   if (!user) return <AuthCard role="student" />;
-  if (!isValidStudentEmail(user.email)) return <ProfileLink onLinked={() => setLinked(true)} />;
   if (!linked || !profile?.trNo) return <ProfileLink onLinked={() => setLinked(true)} />;
   return <StudentDashboard />;
 }
@@ -57,8 +56,8 @@ function StudentDashboard() {
   const [message, setMessage] = useState('');
   const [values, setValues] = useState({
     ...EMPTY_REGISTRATION,
-    trNo: trFromStudentEmail(user.email),
-    fullName: profile.fullName || nameFromGoogleUser(user),
+    trNo: profile?.trNo || trFromStudentEmail(user.email),
+    fullName: profile?.fullName || nameFromGoogleUser(user),
   });
 
   useEffect(() => {
@@ -68,8 +67,8 @@ function StudentDashboard() {
       if (!alive) return;
       const draft = readDraft(user.uid);
       const identity = {
-        trNo: trFromStudentEmail(user.email),
-        fullName: profile.fullName || nameFromGoogleUser(user),
+        trNo: profile?.trNo || trFromStudentEmail(user.email),
+        fullName: profile?.fullName || nameFromGoogleUser(user),
       };
       setRecord(existing);
       setValues({

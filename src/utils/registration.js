@@ -45,7 +45,7 @@ export function clearDraft(uid) {
 }
 
 export function studentWritablePayload(values, profile, user) {
-  const trNo = trFromStudentEmail(user.email);
+  const trNo = profile?.trNo || trFromStudentEmail(user.email);
   const payload = {
     ...EMPTY_REGISTRATION,
     ...values,

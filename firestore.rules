@@ -25,6 +25,12 @@ service cloud.firestore {
       return isAdmin() && request.auth.token.email == 'idrislaheri72@gmail.com';
     }
 
+    function isWhitelistedStudent() {
+      return signedIn()
+        && request.auth.token.email is string
+        && exists(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email));
+    }
+
     function validStatus(value) {
       return value in ['pending', 'on-hold', 'approved'];
     }
@@ -39,13 +45,15 @@ service cloud.firestore {
     function isStudentEmail() {
       return signedIn()
         && request.auth.token.email is string
-        && request.auth.token.email.matches('^[0-9]{5}@jameasaifiyah\\.edu$');
+        && (request.auth.token.email.matches('^[0-9]{5}@jameasaifiyah\\.edu$') || isWhitelistedStudent());
     }
 
     function trMatchesEmail(trNo) {
       return trNo is string
         && trNo.matches('^[0-9]{5}$')
-        && trNo + '@jameasaifiyah.edu' == request.auth.token.email;
+        && (trNo + '@jameasaifiyah.edu' == request.auth.token.email
+            || (isWhitelistedStudent() 
+                && get(/databases/$(database)/documents/student_whitelist/$(request.auth.token.email)).data.trNo == trNo));
     }
 
     function trBelongsToRequestUser(trNo) {
@@ -122,6 +130,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['active', 'displayName', 'email', 'updatedAt', 'updatedBy']);
       allow delete: if isSuperAdmin() && email != 'idrislaheri72@gmail.com';
+    }
+
+    match /student_whitelist/{email} {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /tashjee_config/{docId} {

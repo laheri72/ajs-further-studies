@@ -62,7 +62,7 @@ describe('registration helpers', () => {
     expect(payload).not.toHaveProperty('reviewedAt');
     expect(payload).not.toHaveProperty('reviewedBy');
     expect(payload.uid).toBe(user.uid);
-    expect(payload.trNo).toBe('25687');
+    expect(payload.trNo).toBe('TR100');
   });
 
   it('allows student edits only before submission or when on hold', () => {
