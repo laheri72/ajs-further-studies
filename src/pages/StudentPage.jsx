@@ -21,7 +21,6 @@ import {
   canStudentEdit,
   clearDraft,
   isAutoApprovedRegistration,
-  isValidStudentEmail,
   nameFromGoogleUser,
   needsProgrammeDetails,
   nextQualificationLabel,

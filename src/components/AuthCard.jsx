@@ -1,6 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { STUDENT_EMAIL_DOMAIN } from '../utils/registration';
 import { Footer } from './Footer';
 import { GoogleIcon } from './GoogleIcon';
 
