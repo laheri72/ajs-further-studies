@@ -1,5 +1,7 @@
 export const FORM_VERSION = 'v1';
 
+export const MAIN_ADMIN_EMAIL = 'idrislaheri72@gmail.com';
+
 export const QUALIFICATIONS = [
   'Hifz ul Quran',
   'Dars-e-Nizami (Alimiyah)',
