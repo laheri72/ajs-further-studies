@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, FileCheck2, Search, ShieldAlert, TicketCheck } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock, FileCheck2, Laptop, Search, ShieldAlert, TicketCheck, Users, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
@@ -53,7 +53,7 @@ function AdminDashboard() {
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const tabParam = searchParams.get('tab');
-  const activeTab = tabParam === 'tashjee' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'records';
+  const activeTab = tabParam === 'records' || tabParam === 'tashjee' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'analysis';
 
   async function load() {
     setLoading(true);
@@ -93,8 +93,8 @@ function AdminDashboard() {
         <header className="page-heading admin-heading">
           <div>
             <p className="eyebrow">Further Studies</p>
-            <h1>Student Records Command Center</h1>
-            <p>Verify hall tickets, measure leave pressure, and review clashes before approvals move forward.</p>
+            <h1>Admin Command Center</h1>
+            <p>Monitor analytics, verify credentials, and manage student records.</p>
           </div>
           <div className="admin-header-actions">
             <button className="outline-button" type="button" onClick={load}>
@@ -104,30 +104,74 @@ function AdminDashboard() {
         </header>
 
         <nav className="dashboard-tabs admin-tabs" aria-label="Admin dashboard sections">
-          <button className={activeTab === 'records' ? 'active' : ''} type="button" onClick={() => setSearchParams({}, { replace: true })}>
+          <button className={activeTab === 'analysis' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'analysis' }, { replace: true })}>
+            <BarChart3 size={16} />
+            Analysis
+          </button>
+          <button className={activeTab === 'records' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'records' }, { replace: true })}>
+            <Users size={16} />
             Student Records
           </button>
           <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'tashjee' }, { replace: true })}>
+            <FileCheck2 size={16} />
             Tashjee Management
           </button>
           {canManageAdmins ? (
             <button className={activeTab === 'access' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'access' }, { replace: true })}>
+              <ShieldCheck size={16} />
               Admin Access
             </button>
           ) : null}
         </nav>
 
-        {activeTab === 'records' ? (
+        {activeTab === 'analysis' ? (
           loading ? (
-            <div className="empty-state">Loading student records...</div>
+            <div className="empty-state">Calculating metrics...</div>
           ) : (
             <>
               <section className="stats-grid">
-                <StatCard label="Total Students" value={stats.total} tone="gold" />
-                <StatCard label="Pending" value={stats.pending} tone="warning" />
-                <StatCard label="On Hold" value={stats.onHold} tone="hold" />
-                <StatCard label="Approved" value={stats.approved} tone="success" />
-                <StatCard label="Miqaat Clashes" value={stats.clashes} tone="danger" />
+                <ReviewMetricCard
+                  icon={<Users size={19} />}
+                  label="Total Students"
+                  value={stats.total}
+                  caption="Total registered students in the system"
+                  tone="gold"
+                />
+                <ReviewMetricCard
+                  icon={<Clock size={19} />}
+                  label="Pending"
+                  value={stats.pending}
+                  caption="Applications waiting for Idara review"
+                  tone="warning"
+                />
+                <ReviewMetricCard
+                  icon={<AlertCircle size={19} />}
+                  label="On Hold"
+                  value={stats.onHold}
+                  caption="Records flagged for student clarification"
+                  tone="hold"
+                />
+                <ReviewMetricCard
+                  icon={<CheckCircle2 size={19} />}
+                  label="Approved"
+                  value={stats.approved}
+                  caption="Successfully finalized and locked records"
+                  tone="success"
+                />
+                <ReviewMetricCard
+                  icon={<Laptop size={19} />}
+                  label="Laptop Raza"
+                  value={stats.laptopRaza}
+                  caption="Students requesting laptop permissions"
+                  tone="warning"
+                />
+                <ReviewMetricCard
+                  icon={<AlertTriangle size={19} />}
+                  label="Miqaat Clashes"
+                  value={stats.clashes}
+                  caption="Students with Miqaat event conflicts"
+                  tone="danger"
+                />
               </section>
 
               <section className="admin-analytics-grid">
@@ -165,7 +209,13 @@ function AdminDashboard() {
                 <PressurePanel title="Event Pressure" emptyLabel="No clash events declared yet." items={eventPressure} />
                 <PressurePanel title="Exam Month Pressure" emptyLabel="No exam months selected yet." items={monthPressure} />
               </section>
-
+            </>
+          )
+        ) : activeTab === 'records' ? (
+          loading ? (
+            <div className="empty-state">Loading student records...</div>
+          ) : (
+            <>
               <section className="admin-tools">
                 <label className="search-box">
                   <Search size={17} />
