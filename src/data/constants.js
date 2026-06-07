@@ -4,9 +4,8 @@ export const MAIN_ADMIN_EMAIL = 'idrislaheri72@gmail.com';
 
 export const QUALIFICATIONS = [
   'Hifz ul Quran',
-  'Dars-e-Nizami (Alimiyah)',
-  'Jamea Diploma',
-  'Jamea Certificate',
+  '10th Grade',
+  '12th Grade',
   "Bachelor's Degree",
   "Master's Degree",
   'PhD',
@@ -29,16 +28,13 @@ export const MONTHS = [
 ];
 
 export const MIQAAT_EVENTS = [
-  'Milad un Nabi',
-  'Ashura',
-  'Eid ul Fitr',
-  'Eid ul Adha',
-  'Shab-e-Baraat',
-  'Laylatul Qadr',
+  'Fasle Awwal',
+  'Fasle Sani',
+  'Rehlat Ilmiya',
+  'Istefada Ilmiya',
   'Ashara Mubarakah',
   'Urs Mubarak',
-  'Jamea Annual Event',
-  'Other Jamea Event',
+  'other jamea Events'
 ];
 
 export const STAGES = [

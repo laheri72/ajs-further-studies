@@ -9,7 +9,7 @@ A production-ready React + Firebase portal for Jamea further-studies registratio
 - Cloud Firestore
 - React Hook Form + Zod validation
 - Firestore security rules
-- Firebase Hosting or Netlify SPA deployment
+- Firebase Hosting SPA deployment
 
 ## Local Setup
 
@@ -95,11 +95,3 @@ firebase deploy
 
 `firebase.json` rewrites all clean app routes to `index.html`.
 
-### Netlify
-
-Connect the repository and use:
-
-- Build command: `npm run build`
-- Publish directory: `dist`
-
-`netlify.toml` includes the SPA rewrite.
