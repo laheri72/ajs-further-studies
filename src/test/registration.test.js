@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_REGISTRATION } from '../data/constants';
 import {
+  examProofStateLabel,
+  isProofImageFile,
+  PROOF_IMAGE_MAX_BYTES,
+} from '../utils/proofUpload';
+import {
   canStudentEdit,
   filterStudents,
   isAutoApprovedRegistration,
@@ -24,7 +29,6 @@ function validValues(overrides = {}) {
     ...EMPTY_REGISTRATION,
     trNo: 'TR100',
     fullName: 'Student One',
-    qualifications: ['Jamea Diploma'],
     hasThoughtAboutNext: true,
     nextQualificationIntent: 'planning',
     stage: 'apply_raza',
@@ -52,7 +56,7 @@ describe('registration helpers', () => {
 
   it('keeps admin-owned fields out of student payloads', () => {
     const payload = studentWritablePayload(
-      validValues({ status: 'approved', adminNotes: 'hidden', reviewedAt: 'date', reviewedBy: 'admin' }),
+      validValues({ status: 'approved', adminNotes: 'hidden', reviewedAt: 'date', reviewedBy: 'admin', qualifications: ['legacy'], otherQual: 'legacy' }),
       profile,
       user,
     );
@@ -61,6 +65,8 @@ describe('registration helpers', () => {
     expect(payload).not.toHaveProperty('adminNotes');
     expect(payload).not.toHaveProperty('reviewedAt');
     expect(payload).not.toHaveProperty('reviewedBy');
+    expect(payload).not.toHaveProperty('qualifications');
+    expect(payload).not.toHaveProperty('otherQual');
     expect(payload.uid).toBe(user.uid);
     expect(payload.trNo).toBe('TR100');
   });
@@ -88,9 +94,9 @@ describe('registration helpers', () => {
 });
 
 describe('validation', () => {
-  it('requires qualifications on step two', () => {
-    const errors = validateRegistrationStep(1, validValues({ qualifications: [] }));
-    expect(errors.qualifications).toMatch(/at least one/i);
+  it('does not require legacy qualifications in registration', () => {
+    expect(validateRegistrationStep(0, validValues({ qualifications: [] }))).toEqual({});
+    expect(validateRegistration(validValues({ qualifications: [], otherQual: '' }))).toEqual({});
   });
 
   it('requires programme details only when pursuing the next qualification', () => {
@@ -198,6 +204,20 @@ describe('tashjee helpers', () => {
     expect(isTashjeeRequestDeletable('on-hold')).toBe(true);
     expect(isTashjeeRequestDeletable('approved')).toBe(false);
     expect(isTashjeeRequestDeletable('rejected')).toBe(false);
+  });
+});
+
+describe('exam proof helpers', () => {
+  it('accepts only image proof files under 2 MB', () => {
+    expect(isProofImageFile({ type: 'image/png', size: PROOF_IMAGE_MAX_BYTES })).toBe(true);
+    expect(isProofImageFile({ type: 'image/jpeg', size: PROOF_IMAGE_MAX_BYTES + 1 })).toBe(false);
+    expect(isProofImageFile({ type: 'text/plain', size: 100 })).toBe(false);
+  });
+
+  it('labels exam proof states', () => {
+    expect(examProofStateLabel('uploaded')).toBe('Uploaded');
+    expect(examProofStateLabel('not_generated_yet')).toBe('Not Generated Yet');
+    expect(examProofStateLabel()).toBe('Missing');
   });
 });
 

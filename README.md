@@ -67,12 +67,23 @@ A production-ready React + Firebase portal for Jamea further-studies registratio
 
 - `users/{uid}`: one student profile per Google account.
 - `students/{uid}`: one student registration per Google account.
+- `students/{uid}/qualifications/{qualificationId}`: student-managed academic history rows.
+- `students/{uid}/examProof/current`: current hall-ticket/exam proof upload state and Cloudinary metadata.
 - `trIndex/{trNo}`: TR collision prevention, maps one TR number to one UID.
 - `admins/{email}`: admin whitelist and role source of truth.
 
-V1 status values are strict: `pending` and `approved`.
+Registration status values are strict: `pending`, `on-hold`, and `approved`.
 
-Students may edit their registration only while status is `pending`. Approved records become read-only in the student portal. Admin-owned fields are `status`, `adminNotes`, `reviewedAt`, and `reviewedBy`; student writes never include those fields.
+Students may edit their registration only before submission or when the Idara places the record on hold. Approved records become read-only in the student portal. Admin-owned fields are `status`, `adminNotes`, `reviewedAt`, and `reviewedBy`; student writes never include those fields.
+
+Qualifications are no longer stored in the registration payload. Legacy `students/{uid}.qualifications` data may still render for older submissions, but new academic-history entries use the qualifications subcollection.
+
+Hall-ticket and proof images upload to Cloudinary. The app stores only returned URLs and metadata in Firestore. Optional upload configuration:
+
+```bash
+VITE_CLOUDINARY_CLOUD_NAME=dzhzvaexh
+VITE_CLOUDINARY_UPLOAD_PRESET=Certificates
+```
 
 ## Verification
 
@@ -94,4 +105,3 @@ firebase deploy
 ```
 
 `firebase.json` rewrites all clean app routes to `index.html`.
-

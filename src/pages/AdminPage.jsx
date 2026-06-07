@@ -81,10 +81,6 @@ function AdminDashboard() {
             <p>Search, review, approve, and leave notes for students.</p>
           </div>
           <div className="admin-header-actions">
-            <Link className="outline-button" to="/student" title="Go to my student registration">
-              <GraduationCap size={16} />
-              Student Portal
-            </Link>
             <button className="outline-button" type="button" onClick={load}>
               Refresh
             </button>

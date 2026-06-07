@@ -18,7 +18,9 @@ A secure, elegant web application for Jamea students to register academic plans 
 The database is highly denormalized, leveraging the Google Auth `uid` or normalized `email` as document IDs.
 
 - `users/{uid}`: Core profile (TR Number, Full Name, Email).
-- `students/{uid}`: The actual registration payload (Qualifications, Intent, Programme Details, Clashes, Status, Admin Notes).
+- `students/{uid}`: The registration payload (Intent, Programme Details, Clashes, Status, Admin Notes).
+- `students/{uid}/qualifications/{qualificationId}`: Student-managed academic history rows. This is the current home for qualifications; legacy qualification fields on `students/{uid}` are read-only compatibility data.
+- `students/{uid}/examProof/current`: Hall-ticket / exam confirmation state. Stores `uploaded` or `not_generated_yet` plus Cloudinary URL and metadata when uploaded.
 - `trIndex/{trNo}`: Locking table mapping the 5-digit TR number to a UID to prevent collisions.
 - `admins/{email}`: Whitelist of authorized Idara staff (controls access to `/admin`).
 - `student_whitelist/{email}`: Allowed non-EDU Google accounts.
@@ -31,16 +33,19 @@ The database is highly denormalized, leveraging the Google Auth `uid` or normali
 4. **Super Admin:** Hardcoded as `idrislaheri72@gmail.com` in `src/data/constants.js` (and `firestore.rules`). Can manage other admins/whitelists.
 5. **Auto-Approval:** If a student is not planning a next qualification AND requires no Idara assistance, their status auto-sets to `approved`.
 6. **Form Locking:** If `status == 'approved'`, the student form becomes read-only.
-7. **Security Rules (`firestore.rules`):** Enforce schema validation (e.g., `studentResubmissionKeysOnly`). Students can never directly modify their `status` (unless moving from 'on-hold' to 'pending') or `adminNotes`.
+7. **Academic History:** Qualifications are managed in a dedicated tab and subcollection, not in the main registration stepper.
+8. **Exam Proof:** Hall-ticket uploads use Cloudinary image uploads only. Store returned URLs/metadata in Firestore; never store image bytes in Firestore.
+9. **Security Rules (`firestore.rules`):** Enforce schema validation (e.g., `studentResubmissionKeysOnly`). Students can never directly modify `adminNotes`, `reviewedAt`, or `reviewedBy`.
 
 ## 5. Core Workflows
-*   **Student Journey:** Login (Google) ➔ Link Profile (TR + Name) ➔ View Dashboard ➔ Complete Multi-Step Registration (drafts save to `localStorage`) ➔ Status Pending ➔ View Approved/Hold status later.
-*   **Admin Journey:** Login (Google) ➔ Dashboard Command Center ➔ Search/Filter ➔ Open Review Modal ➔ Update Status (Pending/Approved/On Hold) ➔ Add Notes ➔ Save.
+*   **Student Journey:** Login (Google) ➔ Link Profile (TR + Name) ➔ View Dashboard ➔ Complete Multi-Step Registration (drafts save to `localStorage`) ➔ Manage Qualifications tab ➔ Upload hall ticket or mark not generated yet ➔ View status inside the registration overview.
+*   **Admin Journey:** Login (Google) ➔ Dashboard Command Center ➔ Search/Filter ➔ Open Review Modal ➔ Inspect registration, qualifications, and exam proof ➔ Update Status (Pending/Approved/On Hold) ➔ Add Notes ➔ Save.
 
 ## 6. AI & Developer Guidelines (Strict Mandates)
 *   **Never use TailwindCSS.** Stick to Vanilla CSS located in `src/styles.css`.
 *   **No Custom Backends.** Data fetching and writes happen strictly on the client side via the Firebase SDK (abstracted in `src/services/firestore.js`).
 *   **Update Security Rules:** If you add a new field to the registration form, you **MUST** update `firestore.rules` (`studentResubmissionKeysOnly`) to permit the write.
+*   **Subcollection Rules:** If you change qualifications or exam-proof fields, update the validators in `firestore.rules`.
 *   **Validation:** Use `zod` in `src/utils/validation.js` for all form and data validation.
 *   **Component Modularity:** Maintain the split between `src/pages/` (routing/layout) and `src/components/` (UI elements). Keep files lean.
 *   **Future Scope (V2):** The registration form is currently hardcoded in JSX. Future architectural shifts will move this to a JSON-driven schema builder (Form Engine).

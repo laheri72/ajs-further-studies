@@ -3,8 +3,10 @@ export const TASHJEE_DEFAULT_OPTIONS = [
   'Has shown outstanding performance in external exams',
 ];
 
-export const TASHJEE_PROOF_MAX_BYTES = 2 * 1024 * 1024;
-export const TASHJEE_PROOF_ACCEPT = 'image/*';
+import { PROOF_IMAGE_ACCEPT, PROOF_IMAGE_MAX_BYTES, describeProofImageRules, isProofImageFile } from './proofUpload';
+
+export const TASHJEE_PROOF_MAX_BYTES = PROOF_IMAGE_MAX_BYTES;
+export const TASHJEE_PROOF_ACCEPT = PROOF_IMAGE_ACCEPT;
 
 export const TASHJEE_STATUS_LABELS = {
   pending: { label: 'Pending', tone: 'pending', dot: '🟡' },
@@ -26,8 +28,7 @@ export function normalizeTashjeeOptions(options) {
 }
 
 export function isTashjeeProofFile(file) {
-  if (!file) return false;
-  return file.type.startsWith('image/') && file.size <= TASHJEE_PROOF_MAX_BYTES;
+  return isProofImageFile(file);
 }
 
 export function isTashjeeRequestDeletable(status) {
@@ -35,7 +36,7 @@ export function isTashjeeRequestDeletable(status) {
 }
 
 export function describeTashjeeProofRules() {
-  return 'Upload a JPG, JPEG, or PNG image under 2 MB.';
+  return describeProofImageRules();
 }
 
 export function formatTashjeeTimestamp(value) {

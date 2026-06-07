@@ -1,18 +1,22 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, FileText, Lock, Save } from 'lucide-react';
+import { CheckCircle2, FileText, Loader2, Lock, Save, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { StatusBadge } from '../StatusBadge';
 import {
   MIQAAT_EVENTS,
   MONTHS,
   NEXT_QUALIFICATION_OPTIONS,
-  QUALIFICATIONS,
   STAGES,
   STUDENT_STEPS,
 } from '../../data/constants';
 import { isAutoApprovedRegistration, nextQualificationLabel } from '../../utils/registration';
+import { getExamProof, saveExamProofNotGenerated, uploadExamProof } from '../../services/firestore';
+import { PROOF_IMAGE_ACCEPT, describeProofImageRules, examProofStateLabel, isProofImageFile } from '../../utils/proofUpload';
 
 export function RegistrationTab({
   editable,
   errors,
+  examProof,
   message,
   record,
   saving,
@@ -24,6 +28,8 @@ export function RegistrationTab({
   prevStep,
   submit,
   toggleArray,
+  user,
+  onExamProofChange,
 }) {
   if (!editable) {
     const approved = record?.status === 'approved';
@@ -40,10 +46,11 @@ export function RegistrationTab({
               : 'Your registration is pending Idara review. If clarification is needed, this page will reopen for edits.'}
           </p>
         </div>
+        <StatusPanel record={record} values={values} stageLabels={stageLabels} examProof={examProof} />
         <div className={`notice ${approved ? 'success' : 'warning'}`}>
           <Lock size={16} /> {approved ? 'Approved records cannot be edited from the student portal.' : 'Pending records are locked while the Idara reviews them.'}
         </div>
-        <RegistrationSummary values={values} stageLabels={stageLabels} />
+        <RegistrationSummary values={values} stageLabels={stageLabels} examProof={examProof} />
         {pending && record?.adminNotes ? (
           <div className="admin-note standalone">
             <span>Notes from Idara</span>
@@ -56,6 +63,7 @@ export function RegistrationTab({
 
   return (
     <>
+      <StatusPanel record={record} values={values} stageLabels={stageLabels} examProof={examProof} />
       <div className="section-heading registration-heading">
         <p className="eyebrow">{record?.status === 'on-hold' ? 'Clarification Needed' : 'Student Registration'}</p>
         <h2>{record?.status === 'on-hold' ? 'Update and Resubmit' : 'Further Studies Registration'}</h2>
@@ -85,10 +93,13 @@ export function RegistrationTab({
               step={step}
               values={values}
               errors={errors}
+              examProof={examProof}
               stageLabels={stageLabels}
               editable={editable}
               patch={patch}
               toggleArray={toggleArray}
+              user={user}
+              onExamProofChange={onExamProofChange}
             />
           </motion.div>
         </AnimatePresence>
@@ -97,7 +108,7 @@ export function RegistrationTab({
           <button className="outline-button" type="button" onClick={prevStep} disabled={step === 0}>
             Back
           </button>
-          {step < 4 ? (
+        {step < STUDENT_STEPS.length - 1 ? (
             <button className="gold-button" type="button" onClick={nextStep}>
               Continue
             </button>
@@ -113,12 +124,62 @@ export function RegistrationTab({
   );
 }
 
-function RegistrationSummary({ values, stageLabels }) {
+function StatusPanel({ record, values, stageLabels, examProof }) {
+  const approved = record?.status === 'approved';
+  const onHold = record?.status === 'on-hold';
+  const pending = record?.status === 'pending';
+  const statusTitle = approved
+    ? 'Approved'
+    : onHold
+      ? 'On Hold'
+      : pending
+        ? 'Pending Review'
+        : 'Registration Not Submitted';
+
+  return (
+    <section className={`status-panel inline-status ${approved ? 'approved' : onHold ? 'on-hold' : pending ? 'pending' : ''}`}>
+      <div className="status-copy">
+        <p className="eyebrow">Submission Status</p>
+        <h2>{statusTitle}</h2>
+        <p>
+          {approved
+            ? 'Your registration has been approved by the Idara and is now read-only.'
+            : onHold
+              ? 'The Idara needs clarification before continuing the review. Please read the note, update your registration, and resubmit.'
+              : pending
+                ? 'Your details are recorded and waiting for Idara review.'
+                : 'Complete the registration so the Idara can review your further-studies details.'}
+        </p>
+      </div>
+      <StatusBadge status={record?.status || 'not submitted'} />
+      {record?.adminNotes ? (
+        <div className="admin-note">
+          <span>Notes from Idara</span>
+          <p>{record.adminNotes}</p>
+        </div>
+      ) : null}
+      <div className="status-summary-grid embedded">
+        <SummaryTile label="Programme" value={values.degreeApplying || 'Not provided'} />
+        <SummaryTile label="Stage" value={stageLabels[values.stage] || 'Not selected'} />
+        <SummaryTile label="Exam Proof" value={examProofStateLabel(examProof?.state)} />
+      </div>
+    </section>
+  );
+}
+
+function SummaryTile({ label, value }) {
+  return (
+    <div className="summary-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function RegistrationSummary({ values, stageLabels, examProof }) {
   const rows = [
     ['TR Number', values.trNo],
     ['Full Name', values.fullName],
-    ['Qualifications', values.qualifications.join(', ')],
-    ['Other Qualification', values.otherQual],
     ['Next Qualification', nextQualificationLabel(values)],
     ['Stage', stageLabels[values.stage]],
     ['Leaves Needed This Year', values.needsLeavesThisYear === null ? '' : values.needsLeavesThisYear ? 'Yes' : 'No'],
@@ -131,6 +192,7 @@ function RegistrationSummary({ values, stageLabels }) {
     ['Miqaat / Jamea Clash', values.clashWithMiqaat ? 'Yes' : 'No'],
     ['Clash Events', values.clashEvents.join(', ')],
     ['Clash Details', values.clashDetails],
+    ['Exam Proof', examProofStateLabel(examProof?.state)],
     ['Additional Notes', values.additionalNotes],
   ].filter(([, value]) => value);
 
@@ -159,7 +221,7 @@ function Stepper({ step }) {
   );
 }
 
-function StepContent({ step, values, errors, stageLabels, editable, patch, toggleArray }) {
+function StepContent({ step, values, errors, examProof, stageLabels, editable, patch, toggleArray, user, onExamProofChange }) {
   const selectedNextQualification =
     values.nextQualificationIntent ||
     (values.hasThoughtAboutNext === true ? 'planning' : values.hasThoughtAboutNext === false ? 'not_now' : '');
@@ -186,39 +248,6 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
   }
 
   if (step === 1) {
-    return (
-      <div className="form-section">
-        <h2>Qualifications Acquired</h2>
-        <div className="choice-grid">
-          {QUALIFICATIONS.map((qualification) => (
-            <button
-              className={`choice-card ${values.qualifications.includes(qualification) ? 'selected' : ''}`}
-              type="button"
-              disabled={!editable}
-              onClick={() => toggleArray('qualifications', qualification)}
-              key={qualification}
-            >
-              {qualification}
-            </button>
-          ))}
-        </div>
-        {errors.qualifications ? <span className="field-error">{errors.qualifications}</span> : null}
-        {values.qualifications.includes('Other') ? (
-          <label>
-            Please specify
-            <input
-              value={values.otherQual}
-              disabled={!editable}
-              onChange={(event) => patch({ otherQual: event.target.value })}
-            />
-            {errors.otherQual ? <span className="field-error">{errors.otherQual}</span> : null}
-          </label>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (step === 2) {
     return (
       <div className="form-section">
         <h2>Next Qualification</h2>
@@ -293,7 +322,7 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
     );
   }
 
-  if (step === 3) {
+  if (step === 2) {
     return (
       <div className="form-section">
         <h2>Programme Details</h2>
@@ -412,6 +441,13 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
             onChange={(event) => patch({ additionalNotes: event.target.value })}
           />
         </label>
+        <ExamProofPanel
+          editable={editable}
+          examProof={examProof}
+          user={user}
+          isAlreadyPursuing={values.nextQualificationIntent === 'already_pursuing'}
+          onExamProofChange={onExamProofChange}
+        />
       </div>
     );
   }
@@ -423,8 +459,6 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
         {[
           ['TR Number', values.trNo],
           ['Full Name', values.fullName],
-          ['Qualifications', values.qualifications.join(', ')],
-          ['Other Qualification', values.otherQual],
           ['Next Qualification', nextQualificationLabel(values)],
           ['Stage', stageLabels[values.stage]],
           ['Leaves Needed This Year', values.needsLeavesThisYear === null ? '' : values.needsLeavesThisYear ? 'Yes' : 'No'],
@@ -437,6 +471,7 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
           ['Miqaat / Jamea Clash', values.clashWithMiqaat ? 'Yes' : 'No'],
           ['Clash Events', values.clashEvents.join(', ')],
           ['Clash Details', values.clashDetails],
+          ['Exam Proof', examProofStateLabel(examProof?.state)],
           ['Additional Notes', values.additionalNotes],
         ]
           .filter(([, value]) => value)
@@ -452,6 +487,118 @@ function StepContent({ step, values, errors, stageLabels, editable, patch, toggl
       ) : (
         <div className="notice warning">After submission, status is pending until reviewed by the Idara.</div>
       )}
+    </div>
+  );
+}
+
+function ExamProofPanel({ editable, examProof, user, isAlreadyPursuing, onExamProofChange }) {
+  const fileInputRef = useRef(null);
+  const [proofFile, setProofFile] = useState(null);
+  const [phase, setPhase] = useState('idle');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const proofUploaded = examProof?.state === 'uploaded';
+
+  function handleFileChange(event) {
+    const selectedFile = event.target.files?.[0] || null;
+    if (!selectedFile) {
+      setProofFile(null);
+      return;
+    }
+
+    if (!isProofImageFile(selectedFile)) {
+      setError('Upload a JPG, JPEG, or PNG image smaller than 2 MB.');
+      event.target.value = '';
+      setProofFile(null);
+      return;
+    }
+
+    setProofFile(selectedFile);
+    setError('');
+    setMessage('');
+  }
+
+  async function uploadSelectedProof() {
+    if (!proofFile) {
+      setError('Please choose a hall ticket image first.');
+      return;
+    }
+
+    setPhase('uploading');
+    setError('');
+    setMessage('');
+    try {
+      const nextProof = await uploadExamProof(user.uid, proofFile);
+      onExamProofChange(nextProof);
+      setProofFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setMessage('Hall ticket proof uploaded.');
+    } catch (err) {
+      setError(err.message || 'Unable to upload hall ticket.');
+    } finally {
+      setPhase('idle');
+    }
+  }
+
+  async function markNotGenerated() {
+    setPhase('saving');
+    setError('');
+    setMessage('');
+    try {
+      await saveExamProofNotGenerated(user.uid);
+      onExamProofChange(await getExamProof(user.uid));
+      setMessage('Hall ticket marked as not generated yet.');
+    } catch (err) {
+      setError(err.message || 'Unable to save hall ticket state.');
+    } finally {
+      setPhase('idle');
+    }
+  }
+
+  return (
+    <div className="exam-proof-panel">
+      <div className="sub-question-header">
+        <span>{isAlreadyPursuing ? 'Hall Ticket' : 'Exam Confirmation'}</span>
+        <p>Upload a Hall Ticket to confirm your exam when it is available.</p>
+      </div>
+
+      <div className="proof-status-row">
+        <StatusBadge status={proofUploaded ? 'approved' : examProof?.state === 'not_generated_yet' ? 'pending' : 'not submitted'} />
+        <strong>{examProofStateLabel(examProof?.state)}</strong>
+        {proofUploaded ? (
+          <a href={examProof.proofPreviewUrl || examProof.proofUrl} target="_blank" rel="noreferrer">
+            Open hall ticket
+          </a>
+        ) : null}
+      </div>
+
+      {editable ? (
+        <>
+          <label>
+            Hall Ticket Image
+            <input ref={fileInputRef} type="file" accept={PROOF_IMAGE_ACCEPT} onChange={handleFileChange} />
+            <span className="field-hint">{describeProofImageRules()}</span>
+          </label>
+          {proofFile ? (
+            <div className="file-chip">
+              <Upload size={15} />
+              <span>{proofFile.name}</span>
+            </div>
+          ) : null}
+          <div className="exam-proof-actions">
+            <button className="gold-button" type="button" onClick={uploadSelectedProof} disabled={phase !== 'idle'}>
+              {phase === 'uploading' ? <Loader2 size={16} className="spin-icon" /> : <Upload size={16} />}
+              {phase === 'uploading' ? 'Uploading...' : proofUploaded ? 'Replace Upload' : 'Upload Hall Ticket'}
+            </button>
+            <button className="outline-button" type="button" onClick={markNotGenerated} disabled={phase !== 'idle'}>
+              {phase === 'saving' ? 'Saving...' : 'Not generated yet'}
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {error ? <div className="notice danger">{error}</div> : null}
+      {message ? <div className="notice success">{message}</div> : null}
     </div>
   );
 }

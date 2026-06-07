@@ -1,12 +1,39 @@
-import { AlertCircle, ShieldCheck, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
-import { clearStudentRegistration, updateStudentReview } from '../../services/firestore';
+import { AlertCircle, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { clearStudentRegistration, getExamProof, getStudentQualifications, updateStudentReview } from '../../services/firestore';
+import { examProofStateLabel } from '../../utils/proofUpload';
 
 export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) {
   const [status, setStatus] = useState(['pending', 'on-hold', 'approved'].includes(student.status) ? student.status : 'pending');
   const [adminNotes, setAdminNotes] = useState(student.adminNotes || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [qualifications, setQualifications] = useState([]);
+  const [examProof, setExamProof] = useState(null);
+  const [loadingRelated, setLoadingRelated] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoadingRelated(true);
+
+    Promise.all([getStudentQualifications(student.id), getExamProof(student.id)])
+      .then(([nextQualifications, nextExamProof]) => {
+        if (!alive) return;
+        setQualifications(nextQualifications);
+        setExamProof(nextExamProof);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(err.message || 'Unable to load related student details.');
+      })
+      .finally(() => {
+        if (alive) setLoadingRelated(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [student.id]);
 
   async function save() {
     if (status === 'on-hold' && !adminNotes.trim()) {
@@ -63,8 +90,8 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
             ['Study Commitment', student.studyCommitment],
             ['Raza Days / Year', student.razaDays ? `${student.razaDays} days` : ''],
             ['Exam Months', student.examMonths?.join(', ')],
-            ['Qualifications', student.qualifications?.join(', ')],
             ['Miqaat Clash', student.clashWithMiqaat ? `Yes - ${student.clashEvents?.join(', ') || 'Details provided'}` : 'No'],
+            ['Exam Proof', examProofStateLabel(examProof?.state)],
             ['Student Notes', student.additionalNotes],
           ]
             .filter(([, value]) => value)
@@ -74,6 +101,52 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
                 <strong>{value}</strong>
               </div>
             ))}
+        </div>
+
+        <div className="detail-stack">
+          <div className="detail-cell">
+            <span>Qualifications</span>
+            {loadingRelated ? (
+              <strong className="inline-loading">
+                <Loader2 size={14} className="spin-icon" />
+                Loading qualifications...
+              </strong>
+            ) : qualifications.length ? (
+              <div className="admin-qualification-list">
+                {qualifications.map((qualification) => (
+                  <strong key={qualification.id}>
+                    {qualification.title}
+                    {[qualification.institute, qualification.yearObtained, qualification.grade].filter(Boolean).length
+                      ? ` · ${[qualification.institute, qualification.yearObtained, qualification.grade].filter(Boolean).join(' · ')}`
+                      : ''}
+                  </strong>
+                ))}
+              </div>
+            ) : student.qualifications?.length || student.otherQual ? (
+              <strong>{[...(student.qualifications || []), student.otherQual].filter(Boolean).join(', ')}</strong>
+            ) : (
+              <strong>No qualifications saved yet.</strong>
+            )}
+          </div>
+
+          <div className="detail-cell">
+            <span>Hall Ticket / Exam Proof</span>
+            {loadingRelated ? (
+              <strong className="inline-loading">
+                <Loader2 size={14} className="spin-icon" />
+                Loading proof...
+              </strong>
+            ) : examProof?.state === 'uploaded' ? (
+              <div className="proof-preview-wrap">
+                <img className="proof-preview" src={examProof.proofPreviewUrl || examProof.proofUrl} alt="Hall ticket proof preview" />
+                <a href={examProof.proofPreviewUrl || examProof.proofUrl} target="_blank" rel="noreferrer">
+                  Open hall ticket image
+                </a>
+              </div>
+            ) : (
+              <strong>{examProofStateLabel(examProof?.state)}</strong>
+            )}
+          </div>
         </div>
 
         <div className="split-choice modal-choice">

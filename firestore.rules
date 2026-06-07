@@ -71,6 +71,81 @@ service cloud.firestore {
       return url is string && url.matches('^https://res\\.cloudinary\\.com/.+\\.(jpg|jpeg|png|webp)$');
     }
 
+    function validCloudinaryImageUrl(url) {
+      return url is string && url.matches('^https://res\\.cloudinary\\.com/.+\\.(jpg|jpeg|png|webp)$');
+    }
+
+    function optionalShortString(data, field, maxSize) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxSize);
+    }
+
+    function validQualificationData(data) {
+      return data.keys().hasOnly([
+          'title',
+          'institute',
+          'yearObtained',
+          'grade',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasAll(['title', 'createdAt', 'updatedAt'])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && optionalShortString(data, 'institute', 160)
+        && optionalShortString(data, 'yearObtained', 20)
+        && optionalShortString(data, 'grade', 80)
+        && optionalShortString(data, 'notes', 1000)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function validExamProofData(data) {
+      return data.keys().hasOnly([
+          'state',
+          'proofUrl',
+          'proofPreviewUrl',
+          'proofPublicId',
+          'proofAssetId',
+          'proofDeleteToken',
+          'format',
+          'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'state',
+          'proofUrl',
+          'proofPreviewUrl',
+          'proofPublicId',
+          'proofAssetId',
+          'proofDeleteToken',
+          'format',
+          'updatedAt'
+        ])
+        && data.state in ['uploaded', 'not_generated_yet']
+        && data.proofUrl is string
+        && data.proofPreviewUrl is string
+        && data.proofPublicId is string
+        && data.proofAssetId is string
+        && data.proofDeleteToken is string
+        && data.format is string
+        && data.proofPublicId.size() <= 200
+        && data.proofAssetId.size() <= 200
+        && data.proofDeleteToken.size() <= 300
+        && data.format.size() <= 20
+        && data.updatedAt == request.time
+        && ((data.state == 'uploaded'
+            && validCloudinaryImageUrl(data.proofUrl)
+            && validCloudinaryImageUrl(data.proofPreviewUrl))
+          || (data.state == 'not_generated_yet'
+            && data.proofUrl == ''
+            && data.proofPreviewUrl == ''
+            && data.proofPublicId == ''
+            && data.proofAssetId == ''
+            && data.proofDeleteToken == ''
+            && data.format == ''));
+    }
+
     function studentResubmissionKeysOnly() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
@@ -234,6 +309,28 @@ service cloud.firestore {
           .hasOnly(['status', 'adminNotes', 'reviewedAt', 'reviewedBy', 'updatedAt']);
 
       allow delete: if isAdmin();
+
+      match /qualifications/{qualificationId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid)
+          && isStudentEmail()
+          && validQualificationData(request.resource.data)
+          && request.resource.data.createdAt == request.time;
+        allow update: if isOwner(uid)
+          && isStudentEmail()
+          && validQualificationData(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      match /examProof/{proofId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if proofId == 'current'
+          && isOwner(uid)
+          && isStudentEmail()
+          && validExamProofData(request.resource.data);
+        allow delete: if false;
+      }
     }
   }
 }

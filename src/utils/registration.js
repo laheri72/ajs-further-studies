@@ -59,6 +59,8 @@ export function studentWritablePayload(values, profile, user) {
   for (const field of ADMIN_OWNED_FIELDS) {
     delete payload[field];
   }
+  delete payload.qualifications;
+  delete payload.otherQual;
 
   return payload;
 }

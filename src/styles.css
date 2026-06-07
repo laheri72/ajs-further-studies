@@ -606,6 +606,10 @@ h3 {
   gap: 10px;
 }
 
+.status-summary-grid.embedded {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .summary-tile {
   display: grid;
   gap: 7px;
@@ -670,6 +674,10 @@ h3 {
   margin-bottom: 26px;
   padding: 22px 24px;
   border-radius: var(--radius-lg);
+}
+
+.inline-status {
+  margin-bottom: 18px;
 }
 
 .status-panel h2 {
@@ -992,6 +1000,10 @@ select option {
   justify-content: space-between;
   gap: 12px;
   margin-top: 24px;
+}
+
+.compact-actions {
+  margin-top: 0;
 }
 
 .modal-save-actions,
@@ -1700,6 +1712,142 @@ tr:hover td {
   padding: 12px;
 }
 
+.inline-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-qualification-list {
+  display: grid;
+  gap: 8px;
+}
+
+.qualifications-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.qualifications-heading {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.qualification-form {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--radius-lg);
+  background: rgb(255 255 255 / 3%);
+  padding: 18px;
+}
+
+.qualification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.qualification-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--radius-lg);
+  background: rgb(255 255 255 / 3%);
+  padding: 16px;
+}
+
+.qualification-card p,
+.qualification-card h3,
+.qualification-card span,
+.qualification-card strong {
+  margin: 0;
+}
+
+.qualification-card p {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qualification-card h3 {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.qualification-card span,
+.qualification-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.qualification-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.legacy-qualifications {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgb(228 199 111 / 22%);
+  border-radius: var(--radius-md);
+  background: rgb(228 199 111 / 6%);
+  padding: 14px;
+}
+
+.legacy-qualifications span {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.legacy-qualifications p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.compact-empty {
+  min-height: 120px;
+}
+
+.exam-proof-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgb(200 168 78 / 16%);
+  border-radius: var(--radius-lg);
+  background: rgb(200 168 78 / 4%);
+  padding: 16px;
+}
+
+.proof-status-row,
+.exam-proof-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.proof-status-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.proof-status-row a,
+.proof-preview-wrap a {
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .modal-choice {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 18px;
@@ -1780,9 +1928,12 @@ tr:hover td {
   .stats-grid,
   .status-hero,
   .status-summary-grid,
+  .status-summary-grid.embedded,
   .admin-tools,
   .admin-access-grid,
   .detail-grid,
+  .qualifications-heading,
+  .qualification-card,
   .identity-summary.compact {
     grid-template-columns: 1fr;
   }

@@ -2,16 +2,6 @@ export const FORM_VERSION = 'v1';
 
 export const MAIN_ADMIN_EMAIL = 'idrislaheri72@gmail.com';
 
-export const QUALIFICATIONS = [
-  'Hifz ul Quran',
-  '10th Grade',
-  '12th Grade',
-  "Bachelor's Degree",
-  "Master's Degree",
-  'PhD',
-  'Other',
-];
-
 export const MONTHS = [
   'January',
   'February',
@@ -76,13 +66,11 @@ export const NEXT_QUALIFICATION_OPTIONS = [
   },
 ];
 
-export const STUDENT_STEPS = ['Details', 'Qualifications', 'Next Steps', 'Programme', 'Review'];
+export const STUDENT_STEPS = ['Details', 'Next Steps', 'Programme', 'Review'];
 
 export const EMPTY_REGISTRATION = {
   trNo: '',
   fullName: '',
-  qualifications: [],
-  otherQual: '',
   nextQualificationIntent: '',
   hasThoughtAboutNext: null,
   stage: '',

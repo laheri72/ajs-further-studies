@@ -12,8 +12,6 @@ export const registrationSchema = z
   .object({
     trNo: trimmed.min(2, 'TR number is required').transform(normalizeTrNo),
     fullName: trimmed.min(2, 'Full name is required'),
-    qualifications: z.array(z.string()).min(1, 'Please select at least one qualification'),
-    otherQual: trimmed.optional().default(''),
     nextQualificationIntent: z.string().optional().default(''),
     hasThoughtAboutNext: z.boolean({ required_error: 'Please choose Yes or No' }),
     stage: z.string().optional().default(''),
@@ -30,14 +28,6 @@ export const registrationSchema = z
     additionalNotes: trimmed.optional().default(''),
   })
   .superRefine((value, ctx) => {
-    if (value.qualifications.includes('Other') && !value.otherQual?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['otherQual'],
-        message: 'Please specify the other qualification',
-      });
-    }
-
     const planning = value.nextQualificationIntent === 'planning' || (!value.nextQualificationIntent && value.hasThoughtAboutNext);
     const alreadyPursuing = value.nextQualificationIntent === 'already_pursuing';
     const needsProgrammeDetails = planning || alreadyPursuing;
@@ -126,7 +116,6 @@ export function validateRegistrationStep(step, values) {
 
   const stepFields = [
     ['trNo', 'fullName'],
-    ['qualifications', 'otherQual'],
     ['hasThoughtAboutNext', 'stage', 'requiresAssistance'],
     ['degreeApplying', 'studyCommitment', 'razaDays', 'examMonths', 'clashWithMiqaat', 'clashEvents', 'needsLeavesThisYear'],
     [],

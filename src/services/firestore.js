@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   runTransaction,
@@ -12,6 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { uploadCloudinaryImage } from './cloudinary';
 import {
   isAutoApprovedRegistration,
   isValidStudentEmail,
@@ -75,6 +77,85 @@ export async function linkStudentProfile(user) {
 export async function getStudentRecord(uid) {
   const snapshot = await getDoc(doc(db, 'students', uid));
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+}
+
+export async function getStudentQualifications(uid) {
+  const snapshot = await getDocs(query(collection(db, 'students', uid, 'qualifications'), orderBy('updatedAt', 'desc')));
+  return snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+}
+
+export async function saveStudentQualification(uid, values, qualificationId = '') {
+  const qualificationRef = qualificationId
+    ? doc(db, 'students', uid, 'qualifications', qualificationId)
+    : doc(collection(db, 'students', uid, 'qualifications'));
+  const payload = {
+    title: String(values.title || '').trim(),
+    institute: String(values.institute || '').trim(),
+    yearObtained: String(values.yearObtained || '').trim(),
+    grade: String(values.grade || '').trim(),
+    notes: String(values.notes || '').trim(),
+    updatedAt: serverTimestamp(),
+  };
+
+  if (!payload.title) {
+    throw new Error('Qualification title is required.');
+  }
+
+  await setDoc(
+    qualificationRef,
+    {
+      ...payload,
+      ...(qualificationId ? {} : { createdAt: serverTimestamp() }),
+    },
+    { merge: true },
+  );
+
+  return qualificationRef.id;
+}
+
+export async function deleteStudentQualification(uid, qualificationId) {
+  await deleteDoc(doc(db, 'students', uid, 'qualifications', qualificationId));
+}
+
+export async function getExamProof(uid) {
+  const snapshot = await getDoc(doc(db, 'students', uid, 'examProof', 'current'));
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+}
+
+export async function saveExamProofNotGenerated(uid) {
+  await setDoc(
+    doc(db, 'students', uid, 'examProof', 'current'),
+    {
+      state: 'not_generated_yet',
+      proofUrl: '',
+      proofPreviewUrl: '',
+      proofPublicId: '',
+      proofAssetId: '',
+      proofDeleteToken: '',
+      format: '',
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function uploadExamProof(uid, file) {
+  const proofUpload = await uploadCloudinaryImage(file, 'Unable to upload hall ticket.');
+  await setDoc(
+    doc(db, 'students', uid, 'examProof', 'current'),
+    {
+      state: 'uploaded',
+      proofUrl: proofUpload.proofUrl,
+      proofPreviewUrl: proofUpload.previewUrl,
+      proofPublicId: proofUpload.publicId,
+      proofAssetId: proofUpload.assetId,
+      proofDeleteToken: proofUpload.deleteToken,
+      format: proofUpload.format,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return getExamProof(uid);
 }
 
 export async function saveStudentRegistration(user, profile, values, existingRecord) {
@@ -181,6 +262,11 @@ export async function deleteWhitelistedStudent(email) {
 
 export async function getAllStudents() {
   const snapshot = await getDocs(query(collection(db, 'students'), orderBy('submittedAt', 'desc')));
+  return snapshot.docs.map((record) => ({ id: record.id, ...record.data() }));
+}
+
+export async function getRecentStudents(limitCount = 1) {
+  const snapshot = await getDocs(query(collection(db, 'students'), orderBy('submittedAt', 'desc'), limit(limitCount)));
   return snapshot.docs.map((record) => ({ id: record.id, ...record.data() }));
 }
 

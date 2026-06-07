@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock3, FileText, ShieldCheck } from 'lucide-react';
+import { FileText, GraduationCap, ShieldCheck } from 'lucide-react';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
@@ -9,7 +9,7 @@ import {
   STAGES,
 } from '../data/constants';
 import { useAuth } from '../context/AuthContext';
-import { getStudentRecord, saveStudentRegistration } from '../services/firestore';
+import { getExamProof, getStudentRecord, saveStudentRegistration } from '../services/firestore';
 import {
   canStudentEdit,
   clearDraft,
@@ -22,8 +22,8 @@ import {
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
 import { ProfileLink } from './ProfileLink';
 import { TashjeeStudentTab } from './TashjeeStudentTab';
-import { StatusLanding } from '../components/student/StatusLanding';
 import { RegistrationTab } from '../components/student/RegistrationFlow';
+import { QualificationsTab } from '../components/student/QualificationsTab';
 
 export function StudentPage() {
   const { user, profile, isAdmin } = useAuth();
@@ -44,7 +44,8 @@ function StudentDashboard({ isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
-  const [activeTab, setActiveTab] = useState('status');
+  const [activeTab, setActiveTab] = useState('registration');
+  const [examProof, setExamProof] = useState(null);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [values, setValues] = useState({
@@ -56,7 +57,10 @@ function StudentDashboard({ isAdmin }) {
   useEffect(() => {
     let alive = true;
     async function load() {
-      const existing = await getStudentRecord(user.uid);
+      const [existing, existingExamProof] = await Promise.all([
+        getStudentRecord(user.uid),
+        getExamProof(user.uid),
+      ]);
       if (!alive) return;
       const draft = readDraft(user.uid);
       const identity = {
@@ -64,6 +68,7 @@ function StudentDashboard({ isAdmin }) {
         fullName: profile?.fullName || nameFromGoogleUser(user),
       };
       setRecord(existing);
+      setExamProof(existingExamProof);
       setValues({
         ...EMPTY_REGISTRATION,
         ...identity,
@@ -104,12 +109,12 @@ function StudentDashboard({ isAdmin }) {
     const stepErrors = validateRegistrationStep(step, values);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length) return;
-    setStep((current) => (!needsProgrammeDetails(values) && current === 2 ? 4 : Math.min(current + 1, 4)));
+    setStep((current) => (!needsProgrammeDetails(values) && current === 1 ? 3 : Math.min(current + 1, 3)));
   }
 
   function prevStep() {
     setErrors({});
-    setStep((current) => (!needsProgrammeDetails(values) && current === 4 ? 2 : Math.max(current - 1, 0)));
+    setStep((current) => (!needsProgrammeDetails(values) && current === 3 ? 1 : Math.max(current - 1, 0)));
   }
 
   async function submit() {
@@ -121,8 +126,12 @@ function StudentDashboard({ isAdmin }) {
     setMessage('');
     try {
       await saveStudentRegistration(user, profile, values, record);
-      const nextRecord = await getStudentRecord(user.uid);
+      const [nextRecord, nextExamProof] = await Promise.all([
+        getStudentRecord(user.uid),
+        getExamProof(user.uid),
+      ]);
       setRecord(nextRecord);
+      setExamProof(nextExamProof);
       clearDraft(user.uid);
       setMessage(
         nextRecord?.status === 'approved'
@@ -157,14 +166,11 @@ function StudentDashboard({ isAdmin }) {
 
         <DashboardTabs activeTab={activeTab} record={record} onChange={setActiveTab} />
 
-        {activeTab === 'status' ? (
-          <StatusLanding record={record} values={values} stageLabels={stageLabels} onOpenRegistration={() => setActiveTab('registration')} />
-        ) : null}
-
         {activeTab === 'registration' ? (
           <RegistrationTab
             editable={editable}
             errors={errors}
+            examProof={examProof}
             message={message}
             record={record}
             saving={saving}
@@ -176,6 +182,16 @@ function StudentDashboard({ isAdmin }) {
             prevStep={prevStep}
             submit={submit}
             toggleArray={toggleArray}
+            user={user}
+            onExamProofChange={setExamProof}
+          />
+        ) : null}
+
+        {activeTab === 'qualifications' ? (
+          <QualificationsTab
+            user={user}
+            legacyQualifications={record?.qualifications || []}
+            legacyOtherQual={record?.otherQual || ''}
           />
         ) : null}
 
@@ -191,20 +207,16 @@ function DashboardTabs({ activeTab, record, onChange }) {
   return (
     <nav className="dashboard-tabs" aria-label="Student dashboard sections">
       <button
-        className={activeTab === 'status' ? 'active' : ''}
-        type="button"
-        onClick={() => onChange('status')}
-      >
-        <Clock3 size={16} />
-        Raza Status
-      </button>
-      <button
         className={activeTab === 'registration' ? 'active' : ''}
         type="button"
         onClick={() => onChange('registration')}
       >
         <FileText size={16} />
         {registrationLabel}
+      </button>
+      <button className={activeTab === 'qualifications' ? 'active' : ''} type="button" onClick={() => onChange('qualifications')}>
+        <GraduationCap size={16} />
+        Qualifications
       </button>
       <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => onChange('tashjee')}>
         <FileText size={16} />
