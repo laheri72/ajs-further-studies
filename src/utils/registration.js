@@ -116,6 +116,7 @@ export function statsForStudents(students) {
     onHold: students.filter((student) => student.status === 'on-hold').length,
     approved: students.filter((student) => student.status === 'approved').length,
     clashes: students.filter((student) => student.clashWithMiqaat).length,
+    laptopRaza: students.filter((student) => student.needsLaptop).length,
   };
 }
 

@@ -169,6 +169,8 @@ service cloud.firestore {
           'clashWithMiqaat',
           'clashEvents',
           'clashDetails',
+          'needsLaptop',
+          'laptopJustification',
           'additionalNotes',
           'submittedAt',
           'updatedAt'

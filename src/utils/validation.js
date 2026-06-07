@@ -25,6 +25,8 @@ export const registrationSchema = z
     clashWithMiqaat: z.boolean().nullable().optional(),
     clashEvents: z.array(z.string()).optional().default([]),
     clashDetails: trimmed.optional().default(''),
+    needsLaptop: z.boolean().nullable().optional(),
+    laptopJustification: z.string().optional().default(''),
     additionalNotes: trimmed.optional().default(''),
   })
   .superRefine((value, ctx) => {
@@ -80,6 +82,22 @@ export const registrationSchema = z
       });
     }
 
+    if (needsProgrammeDetails && value.needsLaptop === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['needsLaptop'],
+        message: 'Please choose Yes or No for laptop requirement',
+      });
+    }
+
+    if (needsProgrammeDetails && value.needsLaptop && !value.laptopJustification) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['laptopJustification'],
+        message: 'Please provide a justification for the laptop requirement',
+      });
+    }
+
     if (value.nextQualificationIntent === 'not_now' && value.requiresAssistance === null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -117,7 +135,7 @@ export function validateRegistrationStep(step, values) {
   const stepFields = [
     ['trNo', 'fullName'],
     ['hasThoughtAboutNext', 'stage', 'requiresAssistance'],
-    ['degreeApplying', 'studyCommitment', 'razaDays', 'examMonths', 'clashWithMiqaat', 'clashEvents', 'needsLeavesThisYear'],
+    ['degreeApplying', 'studyCommitment', 'razaDays', 'examMonths', 'clashWithMiqaat', 'clashEvents', 'needsLeavesThisYear', 'needsLaptop', 'laptopJustification'],
     [],
   ][step];
 

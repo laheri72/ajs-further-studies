@@ -3,6 +3,7 @@ import { CheckCircle2, FileText, Loader2, Lock, Save, Upload } from 'lucide-reac
 import { useRef, useState } from 'react';
 import { StatusBadge } from '../StatusBadge';
 import {
+  LAPTOP_JUSTIFICATIONS,
   MIQAAT_EVENTS,
   MONTHS,
   NEXT_QUALIFICATION_OPTIONS,
@@ -215,6 +216,7 @@ function RegistrationSummary({ values, stageLabels, examProof }) {
     ['Miqaat / Jamea Clash', values.clashWithMiqaat ? 'Yes' : 'No'],
     ['Clash Events', values.clashEvents.join(', ')],
     ['Clash Details', values.clashDetails],
+    ['Laptop Requirement', values.needsLaptop === null ? '' : values.needsLaptop ? `Yes - ${LAPTOP_JUSTIFICATIONS.find((j) => j.value === values.laptopJustification)?.label || values.laptopJustification}` : 'No'],
     ['Exam Proof', examProofStateLabel(examProof?.state)],
     ['Additional Notes', values.additionalNotes],
   ].filter(([, value]) => value);
@@ -464,6 +466,51 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
             onChange={(event) => patch({ additionalNotes: event.target.value })}
           />
         </label>
+
+        <div className="sub-question">
+          <div className="sub-question-header">
+            <span>Laptop Requirement</span>
+            <p>Do you require a laptop for your further studies this year?</p>
+          </div>
+          <div className="split-choice">
+            {[true, false].map((answer) => (
+              <button
+                className={`choice-card sub-choice ${values.needsLaptop === answer ? 'selected' : ''}`}
+                type="button"
+                disabled={!editable}
+                onClick={() => patch({ needsLaptop: answer, laptopJustification: answer ? values.laptopJustification : '' })}
+                key={String(answer)}
+              >
+                {answer ? 'Yes' : 'No'}
+              </button>
+            ))}
+          </div>
+          {errors.needsLaptop ? <span className="field-error">{errors.needsLaptop}</span> : null}
+
+          {values.needsLaptop ? (
+            <div className="sub-question">
+              <div className="sub-question-header">
+                <span>Justification</span>
+                <p>Select the primary reason for your laptop requirement.</p>
+              </div>
+              <div className="stack">
+                {LAPTOP_JUSTIFICATIONS.map((justification) => (
+                  <button
+                    className={`choice-card left sub-choice ${values.laptopJustification === justification.value ? 'selected' : ''}`}
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => patch({ laptopJustification: justification.value })}
+                    key={justification.value}
+                  >
+                    {justification.label}
+                  </button>
+                ))}
+              </div>
+              {errors.laptopJustification ? <span className="field-error">{errors.laptopJustification}</span> : null}
+            </div>
+          ) : null}
+        </div>
+
         <ExamProofPanel
           editable={editable}
           examProof={examProof}

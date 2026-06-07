@@ -18,7 +18,7 @@ A secure, elegant web application for Jamea students to register academic plans 
 The database is highly denormalized, leveraging the Google Auth `uid` or normalized `email` as document IDs.
 
 - `users/{uid}`: Core profile (TR Number, Full Name, Email).
-- `students/{uid}`: The registration payload (Intent, Programme Details, Clashes, Status, Admin Notes).
+- `students/{uid}`: The registration payload (Intent, Programme Details, Clashes, Laptop Requirement, Status, Admin Notes).
 - `students/{uid}/qualifications/{qualificationId}`: Student-managed academic history rows. This is the current home for qualifications; legacy qualification fields on `students/{uid}` are read-only compatibility data.
 - `students/{uid}/examProof/current`: Hall-ticket / exam confirmation state. Stores `uploaded` or `not_generated_yet` plus Cloudinary URL and metadata when uploaded.
 - `trIndex/{trNo}`: Locking table mapping the 5-digit TR number to a UID to prevent collisions.

@@ -84,7 +84,15 @@ export const EMPTY_REGISTRATION = {
   clashWithMiqaat: null,
   clashEvents: [],
   clashDetails: '',
+  needsLaptop: null,
+  laptopJustification: '',
   additionalNotes: '',
 };
+
+export const LAPTOP_JUSTIFICATIONS = [
+  { value: 'library_raza', label: 'Library Raza' },
+  { value: 'mamal_raza', label: 'Mamal Raza' },
+  { value: 'maskan_rabat_raza', label: 'Maskan/Rabat Raza' },
+];
 
 export const ADMIN_OWNED_FIELDS = ['status', 'adminNotes', 'reviewedAt', 'reviewedBy'];
