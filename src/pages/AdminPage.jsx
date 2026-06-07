@@ -1,13 +1,14 @@
-import { GraduationCap, Search } from 'lucide-react';
+import { AlertTriangle, CalendarDays, FileCheck2, Search, ShieldAlert, TicketCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { getAllStudents } from '../services/firestore';
-import { filterStudents, statsForStudents } from '../utils/registration';
+import { getAllStudents, getExamProof } from '../services/firestore';
+import { statsForStudents } from '../utils/registration';
+import { examProofStateLabel } from '../utils/proofUpload';
 import { TashjeeAdminPanel } from './TashjeeAdminPanel';
 import { AdminAccessPanel } from '../components/admin/AdminAccessPanel';
 import { ReviewModal } from '../components/admin/ReviewModal';
@@ -47,6 +48,8 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
+  const [proofFilter, setProofFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState('all');
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const tabParam = searchParams.get('tab');
@@ -56,7 +59,14 @@ function AdminDashboard() {
     setLoading(true);
     setError('');
     try {
-      setStudents(await getAllStudents());
+      const studentRecords = await getAllStudents();
+      const recordsWithProof = await Promise.all(
+        studentRecords.map(async (student) => ({
+          ...student,
+          examProof: await getExamProof(student.id).catch(() => null),
+        })),
+      );
+      setStudents(recordsWithProof);
     } catch (err) {
       setError(err.message || 'Unable to load student records.');
     } finally {
@@ -68,8 +78,14 @@ function AdminDashboard() {
     load();
   }, []);
 
-  const filtered = useMemo(() => filterStudents(students, query, status), [students, query, status]);
+  const filtered = useMemo(
+    () => filterStudentRecords(students, query, status, proofFilter, riskFilter),
+    [students, query, status, proofFilter, riskFilter],
+  );
   const stats = useMemo(() => statsForStudents(students), [students]);
+  const reviewMetrics = useMemo(() => buildReviewMetrics(students), [students]);
+  const eventPressure = useMemo(() => topCounts(students.flatMap((student) => student.clashEvents || []), 5), [students]);
+  const monthPressure = useMemo(() => topCounts(students.flatMap((student) => student.examMonths || []), 6), [students]);
 
   return (
     <AppShell title="Admin Dashboard">
@@ -77,8 +93,8 @@ function AdminDashboard() {
         <header className="page-heading admin-heading">
           <div>
             <p className="eyebrow">Further Studies</p>
-            <h1>Student Records</h1>
-            <p>Search, review, approve, and leave notes for students.</p>
+            <h1>Student Records Command Center</h1>
+            <p>Verify hall tickets, measure leave pressure, and review clashes before approvals move forward.</p>
           </div>
           <div className="admin-header-actions">
             <button className="outline-button" type="button" onClick={load}>
@@ -114,6 +130,42 @@ function AdminDashboard() {
                 <StatCard label="Miqaat Clashes" value={stats.clashes} tone="danger" />
               </section>
 
+              <section className="admin-analytics-grid">
+                <ReviewMetricCard
+                  icon={<TicketCheck size={19} />}
+                  label="Hall Tickets Ready"
+                  value={reviewMetrics.proofUploaded}
+                  caption={`${reviewMetrics.pendingProofUploaded} pending records have proof ready to verify`}
+                  tone="success"
+                />
+                <ReviewMetricCard
+                  icon={<ShieldAlert size={19} />}
+                  label="Proof Missing"
+                  value={reviewMetrics.proofMissing}
+                  caption={`${reviewMetrics.pendingProofMissing} pending students still need hall-ticket proof`}
+                  tone="danger"
+                />
+                <ReviewMetricCard
+                  icon={<CalendarDays size={19} />}
+                  label="Leave Days Requested"
+                  value={reviewMetrics.totalLeaveDays}
+                  caption={`${reviewMetrics.highLeaveRequests} students request 10 or more days`}
+                  tone="warning"
+                />
+                <ReviewMetricCard
+                  icon={<AlertTriangle size={19} />}
+                  label="Clash Cases"
+                  value={reviewMetrics.clashCount}
+                  caption={`${reviewMetrics.clashLeaveDays} leave days are tied to declared clashes`}
+                  tone="danger"
+                />
+              </section>
+
+              <section className="admin-pressure-grid">
+                <PressurePanel title="Event Pressure" emptyLabel="No clash events declared yet." items={eventPressure} />
+                <PressurePanel title="Exam Month Pressure" emptyLabel="No exam months selected yet." items={monthPressure} />
+              </section>
+
               <section className="admin-tools">
                 <label className="search-box">
                   <Search size={17} />
@@ -129,6 +181,18 @@ function AdminDashboard() {
                   <option value="on-hold">On Hold</option>
                   <option value="approved">Approved</option>
                 </select>
+                <select value={proofFilter} onChange={(event) => setProofFilter(event.target.value)}>
+                  <option value="all">All Proof States</option>
+                  <option value="uploaded">Hall Ticket Uploaded</option>
+                  <option value="not_generated_yet">Not Generated Yet</option>
+                  <option value="missing">Proof Missing</option>
+                </select>
+                <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
+                  <option value="all">All Review Focus</option>
+                  <option value="needs-review">Needs Review</option>
+                  <option value="clash">Clash Declared</option>
+                  <option value="high-leave">High Leave Days</option>
+                </select>
               </section>
 
               {error ? <div className="notice danger">{error}</div> : null}
@@ -140,10 +204,12 @@ function AdminDashboard() {
                       <tr>
                         <th>TR</th>
                         <th>Student</th>
-                        <th>Raza Days / Year</th>
+                        <th>Review Focus</th>
+                        <th>Hall Ticket</th>
+                        <th>Leave Days</th>
                         <th>Degree</th>
-                        <th>Exams</th>
-                        <th>Clash</th>
+                        <th>Exam Months</th>
+                        <th>Clash Events</th>
                         <th>Status</th>
                         <th>Action</th>
                       </tr>
@@ -152,11 +218,26 @@ function AdminDashboard() {
                       {filtered.map((student) => (
                         <tr key={student.id}>
                           <td className="gold-text">{student.trNo}</td>
-                          <td>{student.fullName}</td>
-                          <td className="muted-cell">{student.razaDays ? `${student.razaDays} days` : '-'}</td>
+                          <td>
+                            <strong>{student.fullName}</strong>
+                            <span className="table-subtext">{student.email}</span>
+                          </td>
+                          <td>
+                            <ReviewFocus student={student} />
+                          </td>
+                          <td>
+                            <ProofCell proof={student.examProof} />
+                          </td>
+                          <td className={Number(student.razaDays || 0) >= 10 ? 'danger-text' : 'muted-cell'}>
+                            {student.razaDays ? `${student.razaDays} days` : '-'}
+                          </td>
                           <td>{student.degreeApplying || '-'}</td>
-                          <td>{student.examMonths?.slice(0, 3).join(', ') || '-'}</td>
-                          <td>{student.clashWithMiqaat ? <span className="danger-text">Yes</span> : '-'}</td>
+                          <td>
+                            <PillSummary items={student.examMonths || []} emptyLabel="-" />
+                          </td>
+                          <td>
+                            {student.clashWithMiqaat ? <PillSummary items={student.clashEvents || []} emptyLabel="Details provided" danger /> : '-'}
+                          </td>
                           <td>
                             <StatusBadge status={student.status} />
                           </td>
@@ -209,3 +290,152 @@ function StatCard({ label, value, tone }) {
   );
 }
 
+function ReviewMetricCard({ icon, label, value, caption, tone }) {
+  return (
+    <article className={`review-metric-card ${tone}`}>
+      <div className="review-metric-icon">{icon}</div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <p>{caption}</p>
+      </div>
+    </article>
+  );
+}
+
+function PressurePanel({ title, items, emptyLabel }) {
+  return (
+    <section className="pressure-panel">
+      <div className="pressure-panel-head">
+        <FileCheck2 size={17} />
+        <h2>{title}</h2>
+      </div>
+      {items.length ? (
+        <div className="pressure-list">
+          {items.map((item) => (
+            <div className="pressure-row" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.count}</strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="pressure-empty">{emptyLabel}</div>
+      )}
+    </section>
+  );
+}
+
+function ReviewFocus({ student }) {
+  const focusItems = [];
+  if (student.status === 'pending') focusItems.push({ label: 'Pending Review', tone: 'warning' });
+  if (!student.examProof?.state || student.examProof.state === 'not_generated_yet') focusItems.push({ label: 'Proof Needed', tone: 'danger' });
+  if (student.examProof?.state === 'uploaded') focusItems.push({ label: 'Verify Proof', tone: 'success' });
+  if (student.clashWithMiqaat) focusItems.push({ label: 'Clash', tone: 'danger' });
+  if (Number(student.razaDays || 0) >= 10) focusItems.push({ label: 'High Leave', tone: 'warning' });
+
+  if (!focusItems.length) return <span className="muted-cell">Routine</span>;
+
+  return (
+    <div className="focus-chip-list">
+      {focusItems.slice(0, 3).map((item) => (
+        <span className={`focus-chip ${item.tone}`} key={item.label}>
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ProofCell({ proof }) {
+  const state = proof?.state || 'missing';
+  const uploaded = state === 'uploaded';
+  return (
+    <div className="proof-cell">
+      <span className={`focus-chip ${uploaded ? 'success' : state === 'not_generated_yet' ? 'warning' : 'danger'}`}>
+        {examProofStateLabel(state)}
+      </span>
+      {uploaded ? (
+        <a href={proof.proofPreviewUrl || proof.proofUrl} target="_blank" rel="noreferrer">
+          Open
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function PillSummary({ items, emptyLabel, danger = false }) {
+  const visibleItems = items.filter(Boolean);
+  if (!visibleItems.length) return <span className="muted-cell">{emptyLabel}</span>;
+  return (
+    <div className="table-pill-list">
+      {visibleItems.slice(0, 3).map((item) => (
+        <span className={`table-pill ${danger ? 'danger' : ''}`} key={item}>
+          {item}
+        </span>
+      ))}
+      {visibleItems.length > 3 ? <span className="table-pill muted">+{visibleItems.length - 3}</span> : null}
+    </div>
+  );
+}
+
+function filterStudentRecords(students, query, status, proofFilter, riskFilter) {
+  const q = String(query || '').trim().toLowerCase();
+  return students.filter((student) => {
+    const proofState = student.examProof?.state || 'missing';
+    const matchesStatus = status === 'all' || student.status === status;
+    const matchesProof = proofFilter === 'all' || proofState === proofFilter;
+    const matchesRisk =
+      riskFilter === 'all' ||
+      (riskFilter === 'needs-review' && student.status === 'pending') ||
+      (riskFilter === 'clash' && student.clashWithMiqaat) ||
+      (riskFilter === 'high-leave' && Number(student.razaDays || 0) >= 10);
+    const haystack = [
+      student.trNo,
+      student.fullName,
+      student.email,
+      student.degreeApplying,
+      student.institution,
+      ...(student.examMonths || []),
+      ...(student.clashEvents || []),
+      proofState,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return matchesStatus && matchesProof && matchesRisk && (!q || haystack.includes(q));
+  });
+}
+
+function buildReviewMetrics(students) {
+  const proofUploaded = students.filter((student) => student.examProof?.state === 'uploaded').length;
+  const proofMissing = students.filter((student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet').length;
+  const pendingStudents = students.filter((student) => student.status === 'pending');
+  const clashStudents = students.filter((student) => student.clashWithMiqaat);
+
+  return {
+    proofUploaded,
+    pendingProofUploaded: pendingStudents.filter((student) => student.examProof?.state === 'uploaded').length,
+    proofMissing,
+    pendingProofMissing: pendingStudents.filter((student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet').length,
+    totalLeaveDays: students.reduce((sum, student) => sum + Number(student.razaDays || 0), 0),
+    highLeaveRequests: students.filter((student) => Number(student.razaDays || 0) >= 10).length,
+    clashCount: clashStudents.length,
+    clashLeaveDays: clashStudents.reduce((sum, student) => sum + Number(student.razaDays || 0), 0),
+  };
+}
+
+function topCounts(values, limit) {
+  const counts = values.reduce((acc, value) => {
+    const label = String(value || '').trim();
+    if (!label) return acc;
+    acc.set(label, (acc.get(label) || 0) + 1);
+    return acc;
+  }, new Map());
+
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .slice(0, limit);
+}

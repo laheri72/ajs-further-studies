@@ -31,9 +31,16 @@ export function RegistrationTab({
   user,
   onExamProofChange,
 }) {
+  const formRef = useRef(null);
+
+  function scrollToForm() {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   if (!editable) {
     const approved = record?.status === 'approved';
     const pending = record?.status === 'pending';
+    const canManageProof = pending || record?.status === 'on-hold';
 
     return (
       <section className="panel read-only approved-summary-panel">
@@ -50,6 +57,15 @@ export function RegistrationTab({
         <div className={`notice ${approved ? 'success' : 'warning'}`}>
           <Lock size={16} /> {approved ? 'Approved records cannot be edited from the student portal.' : 'Pending records are locked while the Idara reviews them.'}
         </div>
+        {canManageProof ? (
+          <ExamProofPanel
+            editable
+            examProof={examProof}
+            user={user}
+            isAlreadyPursuing={values.nextQualificationIntent === 'already_pursuing'}
+            onExamProofChange={onExamProofChange}
+          />
+        ) : null}
         <RegistrationSummary values={values} stageLabels={stageLabels} examProof={examProof} />
         {pending && record?.adminNotes ? (
           <div className="admin-note standalone">
@@ -63,8 +79,8 @@ export function RegistrationTab({
 
   return (
     <>
-      <StatusPanel record={record} values={values} stageLabels={stageLabels} examProof={examProof} />
-      <div className="section-heading registration-heading">
+      <StatusPanel record={record} values={values} stageLabels={stageLabels} examProof={examProof} onStart={scrollToForm} />
+      <div className="section-heading registration-heading" ref={formRef}>
         <p className="eyebrow">{record?.status === 'on-hold' ? 'Clarification Needed' : 'Student Registration'}</p>
         <h2>{record?.status === 'on-hold' ? 'Update and Resubmit' : 'Further Studies Registration'}</h2>
         <p>
@@ -124,7 +140,7 @@ export function RegistrationTab({
   );
 }
 
-function StatusPanel({ record, values, stageLabels, examProof }) {
+function StatusPanel({ record, values, stageLabels, examProof, onStart }) {
   const approved = record?.status === 'approved';
   const onHold = record?.status === 'on-hold';
   const pending = record?.status === 'pending';
@@ -151,7 +167,14 @@ function StatusPanel({ record, values, stageLabels, examProof }) {
                 : 'Complete the registration so the Idara can review your further-studies details.'}
         </p>
       </div>
-      <StatusBadge status={record?.status || 'not submitted'} />
+      <div className="status-badge-container">
+        <StatusBadge status={record?.status || 'not submitted'} />
+        {onStart ? (
+          <button className="gold-button glow-button" type="button" onClick={onStart}>
+            Start Registration
+          </button>
+        ) : null}
+      </div>
       {record?.adminNotes ? (
         <div className="admin-note">
           <span>Notes from Idara</span>

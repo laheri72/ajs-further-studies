@@ -1087,9 +1087,134 @@ select option {
 
 .admin-tools {
   display: grid;
-  grid-template-columns: 1fr 180px;
+  grid-template-columns: minmax(260px, 1fr) 160px 190px 180px;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.admin-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.review-metric-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 18px;
+}
+
+.review-metric-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgb(200 168 78 / 10%);
+  color: var(--gold);
+}
+
+.review-metric-card span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.review-metric-card strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.review-metric-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-metric-card.success .review-metric-icon,
+.review-metric-card.success strong {
+  color: var(--success);
+}
+
+.review-metric-card.warning .review-metric-icon,
+.review-metric-card.warning strong {
+  color: var(--warning);
+}
+
+.review-metric-card.danger .review-metric-icon,
+.review-metric-card.danger strong {
+  color: var(--danger);
+}
+
+.admin-pressure-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pressure-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 18px;
+}
+
+.pressure-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--gold);
+}
+
+.pressure-panel-head h2 {
+  color: var(--text);
+  font-size: 22px;
+}
+
+.pressure-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pressure-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 3%);
+  padding: 10px 12px;
+}
+
+.pressure-row span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.pressure-row strong {
+  color: var(--gold);
+}
+
+.pressure-empty {
+  border: 1px dashed rgb(255 255 255 / 12%);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  padding: 16px;
+  text-align: center;
 }
 
 .admin-access-panel {
@@ -1650,6 +1775,76 @@ tr:hover td {
 .muted-cell {
   color: var(--muted);
   font-size: 12px;
+}
+
+.table-subtext {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.focus-chip-list,
+.table-pill-list,
+.proof-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.focus-chip,
+.table-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.focus-chip.success {
+  border: 1px solid rgb(120 191 138 / 30%);
+  background: rgb(120 191 138 / 10%);
+  color: var(--success);
+}
+
+.focus-chip.warning {
+  border: 1px solid rgb(228 199 111 / 30%);
+  background: rgb(228 199 111 / 10%);
+  color: var(--warning);
+}
+
+.focus-chip.danger {
+  border: 1px solid rgb(219 119 119 / 30%);
+  background: rgb(219 119 119 / 10%);
+  color: var(--danger);
+}
+
+.table-pill {
+  border: 1px solid rgb(200 168 78 / 20%);
+  background: rgb(200 168 78 / 7%);
+  color: var(--gold);
+}
+
+.table-pill.danger {
+  border-color: rgb(219 119 119 / 24%);
+  background: rgb(219 119 119 / 8%);
+  color: var(--danger);
+}
+
+.table-pill.muted {
+  border-color: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 4%);
+  color: var(--muted);
+}
+
+.proof-cell a {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .empty-state {
