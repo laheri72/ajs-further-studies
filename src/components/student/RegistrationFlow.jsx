@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, FileText, Loader2, Lock, Save, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StatusBadge } from '../StatusBadge';
 import {
   LAPTOP_JUSTIFICATIONS,
@@ -33,6 +33,15 @@ export function RegistrationTab({
   onExamProofChange,
 }) {
   const formRef = useRef(null);
+
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      const firstError = document.querySelector('.field-error');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [errors]);
 
   function scrollToForm() {
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -280,7 +289,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
         <div className="stack">
           {NEXT_QUALIFICATION_OPTIONS.map((option) => (
             <button
-              className={`choice-card left ${selectedNextQualification === option.value ? 'selected' : ''}`}
+              className={`choice-card left ${selectedNextQualification === option.value ? 'selected' : ''} ${errors.hasThoughtAboutNext ? 'is-invalid' : ''}`}
               type="button"
               disabled={!editable}
               onClick={() =>
@@ -308,7 +317,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
             <div className="stack">
               {STAGES.map((stage) => (
                 <button
-                  className={`choice-card left sub-choice ${values.stage === stage.value ? 'selected' : ''}`}
+                  className={`choice-card left sub-choice ${values.stage === stage.value ? 'selected' : ''} ${errors.stage ? 'is-invalid' : ''}`}
                   type="button"
                   disabled={!editable}
                   onClick={() => patch({ stage: stage.value })}
@@ -330,7 +339,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
             <div className="split-choice">
               {[true, false].map((answer) => (
                 <button
-                  className={`choice-card sub-choice ${values.requiresAssistance === answer ? 'selected' : ''}`}
+                  className={`choice-card sub-choice ${values.requiresAssistance === answer ? 'selected' : ''} ${errors.requiresAssistance ? 'is-invalid' : ''}`}
                   type="button"
                   disabled={!editable}
                   onClick={() => patch({ requiresAssistance: answer })}
@@ -355,6 +364,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
           <label>
             Degree / Programme Applying For
             <input
+              className={errors.degreeApplying ? 'is-invalid' : ''}
               value={values.degreeApplying}
               disabled={!editable}
               onChange={(event) => patch({ degreeApplying: event.target.value })}
@@ -365,15 +375,18 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
           <label>
             Institution / University
             <input
+              className={errors.institution ? 'is-invalid' : ''}
               value={values.institution}
               disabled={!editable}
               onChange={(event) => patch({ institution: event.target.value })}
             />
+            {errors.institution ? <span className="field-error">{errors.institution}</span> : null}
           </label>
         </div>
         <label>
           Study Commitment
           <textarea
+            className={errors.studyCommitment ? 'is-invalid' : ''}
             value={values.studyCommitment}
             disabled={!editable}
             onChange={(event) => patch({ studyCommitment: event.target.value })}
@@ -384,6 +397,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
         <label>
           Raza days required in the year
           <input
+            className={errors.razaDays ? 'is-invalid' : ''}
             type="number"
             min="0"
             value={values.razaDays}
@@ -401,7 +415,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
             <div className="split-choice">
               {[true, false].map((answer) => (
                 <button
-                  className={`choice-card sub-choice ${values.needsLeavesThisYear === answer ? 'selected' : ''}`}
+                  className={`choice-card sub-choice ${values.needsLeavesThisYear === answer ? 'selected' : ''} ${errors.needsLeavesThisYear ? 'is-invalid' : ''}`}
                   type="button"
                   disabled={!editable}
                   onClick={() => patch({ needsLeavesThisYear: answer })}
@@ -419,6 +433,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
           items={MONTHS}
           values={values.examMonths}
           disabled={!editable}
+          error={!!errors.examMonths}
           onToggle={(month) => toggleArray('examMonths', month)}
         />
         {errors.examMonths ? <span className="field-error">{errors.examMonths}</span> : null}
@@ -426,7 +441,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
         <div className="split-choice">
           {[true, false].map((answer) => (
             <button
-              className={`choice-card ${values.clashWithMiqaat === answer ? 'selected' : ''}`}
+              className={`choice-card ${values.clashWithMiqaat === answer ? 'selected' : ''} ${errors.clashWithMiqaat ? 'is-invalid' : ''}`}
               type="button"
               disabled={!editable}
               onClick={() => patch({ clashWithMiqaat: answer, clashEvents: answer ? values.clashEvents : [] })}
@@ -445,16 +460,19 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
               values={values.clashEvents}
               disabled={!editable}
               danger
+              error={!!errors.clashEvents}
               onToggle={(eventName) => toggleArray('clashEvents', eventName)}
             />
             {errors.clashEvents ? <span className="field-error">{errors.clashEvents}</span> : null}
             <label>
               Clash details
               <textarea
+                className={errors.clashDetails ? 'is-invalid' : ''}
                 value={values.clashDetails}
                 disabled={!editable}
                 onChange={(event) => patch({ clashDetails: event.target.value })}
               />
+              {errors.clashDetails ? <span className="field-error">{errors.clashDetails}</span> : null}
             </label>
           </>
         ) : null}
@@ -475,7 +493,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
           <div className="split-choice">
             {[true, false].map((answer) => (
               <button
-                className={`choice-card sub-choice ${values.needsLaptop === answer ? 'selected' : ''}`}
+                className={`choice-card sub-choice ${values.needsLaptop === answer ? 'selected' : ''} ${errors.needsLaptop ? 'is-invalid' : ''}`}
                 type="button"
                 disabled={!editable}
                 onClick={() => patch({ needsLaptop: answer, laptopJustification: answer ? values.laptopJustification : '' })}
@@ -496,7 +514,7 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
               <div className="stack">
                 {LAPTOP_JUSTIFICATIONS.map((justification) => (
                   <button
-                    className={`choice-card left sub-choice ${values.laptopJustification === justification.value ? 'selected' : ''}`}
+                    className={`choice-card left sub-choice ${values.laptopJustification === justification.value ? 'selected' : ''} ${errors.laptopJustification ? 'is-invalid' : ''}`}
                     type="button"
                     disabled={!editable}
                     onClick={() => patch({ laptopJustification: justification.value })}
@@ -673,14 +691,14 @@ function ExamProofPanel({ editable, examProof, user, isAlreadyPursuing, onExamPr
   );
 }
 
-function PillGroup({ label, items, values, disabled, danger = false, onToggle }) {
+function PillGroup({ label, items, values, disabled, danger = false, error = false, onToggle }) {
   return (
     <div className="pill-section">
       <span>{label}</span>
       <div className="pill-grid">
         {items.map((item) => (
           <button
-            className={`pill ${danger ? 'danger-pill' : ''} ${values.includes(item) ? 'selected' : ''}`}
+            className={`pill ${danger ? 'danger-pill' : ''} ${values.includes(item) ? 'selected' : ''} ${error ? 'is-invalid' : ''}`}
             type="button"
             disabled={disabled}
             onClick={() => onToggle(item)}

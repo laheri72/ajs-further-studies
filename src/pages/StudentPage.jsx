@@ -222,9 +222,6 @@ function DashboardTabs({ activeTab, record, onChange }) {
         <FileText size={16} />
         Tashjee Request
       </button>
-      <button type="button" disabled>
-        v2 Modules
-      </button>
     </nav>
   );
 }

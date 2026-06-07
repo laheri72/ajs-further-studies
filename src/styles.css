@@ -821,6 +821,7 @@ textarea {
   padding: 12px 14px;
   letter-spacing: 0;
   text-transform: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 textarea {
@@ -832,6 +833,20 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(200 168 78 / 12%);
+}
+
+input.is-invalid,
+textarea.is-invalid,
+select.is-invalid {
+  border-color: var(--danger);
+  background: rgb(219 119 119 / 4%);
+}
+
+input.is-invalid:focus,
+textarea.is-invalid:focus,
+select.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgb(219 119 119 / 12%);
 }
 
 select option {
@@ -907,14 +922,26 @@ select option {
 
 .choice-card.sub-choice:hover,
 .choice-card.sub-choice.selected {
-  border-color: rgb(120 191 138 / 55%);
-  background: rgb(120 191 138 / 10%);
+  border-color: rgb(120 191 138 / 65%);
+  background: rgb(120 191 138 / 18%);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
 }
 
 .choice-card:hover,
 .choice-card.selected {
   border-color: var(--gold);
-  background: rgb(200 168 78 / 9%);
+  background: rgb(200 168 78 / 18%);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.choice-card.selected,
+.choice-card.sub-choice.selected {
+  transform: translateY(-1px);
+}
+
+.choice-card.is-invalid {
+  border-color: var(--danger);
+  background: rgb(219 119 119 / 6%);
 }
 
 .pill-section {
@@ -947,11 +974,18 @@ select option {
 
 .pill.selected {
   border-color: var(--gold);
+  background: rgb(200 168 78 / 18%);
   color: var(--gold);
+}
+
+.pill.is-invalid {
+  border-color: var(--danger);
+  background: rgb(219 119 119 / 6%);
 }
 
 .pill.danger-pill.selected {
   border-color: var(--danger);
+  background: rgb(219 119 119 / 12%);
   color: var(--danger);
 }
 
