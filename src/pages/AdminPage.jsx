@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAllStudents, getExamProof } from '../services/firestore';
 import { statsForStudents } from '../utils/registration';
 import { examProofStateLabel } from '../utils/proofUpload';
-import { TashjeeAdminPanel } from './TashjeeAdminPanel';
+import { ResultsAdminPanel } from '../components/admin/ResultsAdminPanel';
 import { AdminAccessPanel } from '../components/admin/AdminAccessPanel';
 import { ReviewModal } from '../components/admin/ReviewModal';
 import { MAIN_ADMIN_EMAIL } from '../data/constants';
@@ -53,7 +53,7 @@ function AdminDashboard() {
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const tabParam = searchParams.get('tab');
-  const activeTab = tabParam === 'records' || tabParam === 'tashjee' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'analysis';
+  const activeTab = tabParam === 'records' || tabParam === 'results' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'analysis';
 
   async function load() {
     setLoading(true);
@@ -112,9 +112,9 @@ function AdminDashboard() {
             <Users size={16} />
             Student Records
           </button>
-          <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'tashjee' }, { replace: true })}>
+          <button className={activeTab === 'results' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'results' }, { replace: true })}>
             <FileCheck2 size={16} />
-            Tashjee Management
+            Results Management
           </button>
           {canManageAdmins ? (
             <button className={activeTab === 'access' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'access' }, { replace: true })}>
@@ -160,9 +160,9 @@ function AdminDashboard() {
                 />
                 <ReviewMetricCard
                   icon={<Laptop size={19} />}
-                  label="Laptop Raza"
+                  label="Further Allowances"
                   value={stats.laptopRaza}
-                  caption="Students requesting laptop permissions"
+                  caption="Students requesting further allowances"
                   tone="warning"
                 />
                 <ReviewMetricCard
@@ -206,8 +206,8 @@ function AdminDashboard() {
               </section>
 
               <section className="admin-pressure-grid">
-                <PressurePanel title="Event Pressure" emptyLabel="No clash events declared yet." items={eventPressure} />
-                <PressurePanel title="Exam Month Pressure" emptyLabel="No exam months selected yet." items={monthPressure} />
+                <PressurePanel title="Event Clashes" emptyLabel="No clash events declared yet." items={eventPressure} />
+                <PressurePanel title="Exam Month Clashes" emptyLabel="No exam months selected yet." items={monthPressure} />
               </section>
             </>
           )
@@ -306,8 +306,8 @@ function AdminDashboard() {
               </section>
             </>
           )
-        ) : activeTab === 'tashjee' ? (
-          <TashjeeAdminPanel />
+        ) : activeTab === 'results' ? (
+          <ResultsAdminPanel />
         ) : (
           <AdminAccessPanel currentUser={user} />
         )}
@@ -328,15 +328,6 @@ function AdminDashboard() {
         />
       ) : null}
     </AppShell>
-  );
-}
-
-function StatCard({ label, value, tone }) {
-  return (
-    <div className={`stat-card ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 

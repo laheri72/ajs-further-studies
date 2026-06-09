@@ -21,9 +21,8 @@ import {
 } from '../utils/registration';
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
 import { ProfileLink } from './ProfileLink';
-import { TashjeeStudentTab } from './TashjeeStudentTab';
 import { RegistrationTab } from '../components/student/RegistrationFlow';
-import { QualificationsTab } from '../components/student/QualificationsTab';
+import { ResultsTab } from '../components/student/QualificationsTab';
 
 export function StudentPage() {
   const { user, profile, isAdmin } = useAuth();
@@ -187,15 +186,13 @@ function StudentDashboard({ isAdmin }) {
           />
         ) : null}
 
-        {activeTab === 'qualifications' ? (
-          <QualificationsTab
+        {activeTab === 'results' ? (
+          <ResultsTab
             user={user}
             legacyQualifications={record?.qualifications || []}
             legacyOtherQual={record?.otherQual || ''}
           />
         ) : null}
-
-        {activeTab === 'tashjee' ? <TashjeeStudentTab user={user} profile={profile} /> : null}
       </main>
     </AppShell>
   );
@@ -214,13 +211,9 @@ function DashboardTabs({ activeTab, record, onChange }) {
         <FileText size={16} />
         {registrationLabel}
       </button>
-      <button className={activeTab === 'qualifications' ? 'active' : ''} type="button" onClick={() => onChange('qualifications')}>
+      <button className={activeTab === 'results' ? 'active' : ''} type="button" onClick={() => onChange('results')}>
         <GraduationCap size={16} />
-        Qualifications
-      </button>
-      <button className={activeTab === 'tashjee' ? 'active' : ''} type="button" onClick={() => onChange('tashjee')}>
-        <FileText size={16} />
-        Tashjee Request
+        Results
       </button>
     </nav>
   );

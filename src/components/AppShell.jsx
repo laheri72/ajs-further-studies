@@ -1,22 +1,10 @@
-import { Bell, LogOut } from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { subscribePendingTashjeeCount } from '../services/tashjee';
 import { Footer } from './Footer';
 
 export function AppShell({ children, title = 'Further Studies Portal' }) {
-  const { user, profile, signOutUser, isAdmin, hasFirebaseConfig } = useAuth();
-  const [pendingTashjeeCount, setPendingTashjeeCount] = useState(0);
-
-  useEffect(() => {
-    if (!isAdmin || !hasFirebaseConfig) return undefined;
-
-    return subscribePendingTashjeeCount(
-      (count) => setPendingTashjeeCount(count),
-      () => setPendingTashjeeCount(0),
-    );
-  }, [isAdmin, hasFirebaseConfig]);
+  const { user, profile, signOutUser, isAdmin } = useAuth();
 
   return (
     <div className="page-shell">
@@ -28,10 +16,9 @@ export function AppShell({ children, title = 'Further Studies Portal' }) {
         {user ? (
           <div className="nav-user">
             {isAdmin ? (
-              <Link className="topbar-bell" to="/admin?tab=tashjee" aria-label="Open Tashjee Management">
-                <Bell size={17} />
-                {pendingTashjeeCount ? <span className="topbar-badge">{pendingTashjeeCount}</span> : null}
-                <span className="topbar-bell-label">Requests</span>
+              <Link className="topbar-bell" to="/admin?tab=results" aria-label="Open Results Management">
+                <ShieldCheck size={17} />
+                <span className="topbar-bell-label">Results</span>
               </Link>
             ) : null}
             {user.photoURL ? <img src={user.photoURL} alt="" /> : null}

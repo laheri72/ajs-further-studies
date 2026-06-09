@@ -63,12 +63,8 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/trIndex/$(trNo)).data.uid == request.auth.uid;
     }
 
-    function validTashjeeStatus(value) {
+    function validResultStatus(value) {
       return value in ['pending', 'approved', 'rejected'];
-    }
-
-    function validTashjeeUrl(url) {
-      return url is string && url.matches('^https://res\\.cloudinary\\.com/.+\\.(jpg|jpeg|png|webp)$');
     }
 
     function validCloudinaryImageUrl(url) {
@@ -79,13 +75,29 @@ service cloud.firestore {
       return !(field in data) || (data[field] is string && data[field].size() <= maxSize);
     }
 
+    function optionalNumber(data, field, min, max) {
+      return !(field in data) || (data[field] is number && data[field] >= min && data[field] <= max);
+    }
+
     function validQualificationData(data) {
       return data.keys().hasOnly([
           'title',
           'institute',
           'yearObtained',
           'grade',
+          'percentage',
           'notes',
+          'status',
+          'adminNotes',
+          'studentName',
+          'trNo',
+          'studentEmail',
+          'proofUrl',
+          'proofPreviewUrl',
+          'proofPublicId',
+          'proofAssetId',
+          'proofDeleteToken',
+          'format',
           'createdAt',
           'updatedAt'
         ])
@@ -96,7 +108,22 @@ service cloud.firestore {
         && optionalShortString(data, 'institute', 160)
         && optionalShortString(data, 'yearObtained', 20)
         && optionalShortString(data, 'grade', 80)
+        && optionalNumber(data, 'percentage', 0, 100)
         && optionalShortString(data, 'notes', 1000)
+        && optionalShortString(data, 'status', 20)
+        && optionalShortString(data, 'adminNotes', 1000)
+        && optionalShortString(data, 'studentName', 100)
+        && optionalShortString(data, 'trNo', 10)
+        && optionalShortString(data, 'studentEmail', 100)
+        && optionalShortString(data, 'proofUrl', 500)
+        && optionalShortString(data, 'proofPreviewUrl', 500)
+        && optionalShortString(data, 'proofPublicId', 200)
+        && optionalShortString(data, 'proofAssetId', 200)
+        && optionalShortString(data, 'proofDeleteToken', 300)
+        && optionalShortString(data, 'format', 20)
+        && (!(data.keys().hasAll(['status'])) || validResultStatus(data.status))
+        && (!(data.keys().hasAll(['proofUrl'])) || data.proofUrl == '' || validCloudinaryImageUrl(data.proofUrl))
+        && (!(data.keys().hasAll(['proofPreviewUrl'])) || data.proofPreviewUrl == '' || validCloudinaryImageUrl(data.proofPreviewUrl))
         && data.createdAt is timestamp
         && data.updatedAt == request.time;
     }
@@ -214,36 +241,12 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    match /tashjee_config/{docId} {
-      allow read: if signedIn();
-      allow write: if isAdmin();
-    }
-
-    match /tashjee_requests/{requestId} {
-      allow read: if isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
-
-      allow create: if signedIn()
-        && isStudentEmail()
-        && request.resource.data.requestId == requestId
-        && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.studentName is string
-        && request.resource.data.requestType is string
-        && request.resource.data.detailedReason is string
-        && validTashjeeUrl(request.resource.data.proofUrl)
-        && request.resource.data.status == 'pending'
-        && request.resource.data.adminRemarks == ''
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time;
-
-      allow update: if isAdmin()
-        && validTashjeeStatus(request.resource.data.status)
-        && request.resource.data.adminRemarks is string
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'adminRemarks', 'updatedAt']);
-
-      allow delete: if isAdmin()
-        || (signedIn()
-          && resource.data.studentId == request.auth.uid
-          && resource.data.status in ['pending', 'on-hold']);
+    match /{path=**}/qualifications/{qualificationId} {
+      allow read: if isAdmin();
+      allow update: if isAdmin() 
+        && validResultStatus(request.resource.data.status)
+        && request.resource.data.adminNotes is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'adminNotes', 'updatedAt']);
     }
 
     match /users/{uid} {

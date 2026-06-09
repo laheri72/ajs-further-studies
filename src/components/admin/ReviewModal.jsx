@@ -2,8 +2,6 @@ import { AlertCircle, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { clearStudentRegistration, getExamProof, getStudentQualifications, updateStudentReview } from '../../services/firestore';
 import { examProofStateLabel } from '../../utils/proofUpload';
-import { LAPTOP_JUSTIFICATIONS } from '../../data/constants';
-
 export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) {
   const [status, setStatus] = useState(['pending', 'on-hold', 'approved'].includes(student.status) ? student.status : 'pending');
   const [adminNotes, setAdminNotes] = useState(student.adminNotes || '');
@@ -92,7 +90,7 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
             ['Raza Days / Year', student.razaDays ? `${student.razaDays} days` : ''],
             ['Exam Months', student.examMonths?.join(', ')],
             ['Miqaat Clash', student.clashWithMiqaat ? `Yes - ${student.clashEvents?.join(', ') || 'Details provided'}` : 'No'],
-            ['Laptop Requirement', student.needsLaptop ? `Yes - ${LAPTOP_JUSTIFICATIONS.find((j) => j.value === student.laptopJustification)?.label || student.laptopJustification}` : 'No'],
+            ['Further Allowances', student.needsLaptop ? `Yes - ${student.laptopJustification}` : 'No'],
             ['Exam Proof', examProofStateLabel(examProof?.state)],
             ['Student Notes', student.additionalNotes],
           ]

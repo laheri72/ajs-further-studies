@@ -86,7 +86,7 @@ export const registrationSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['needsLaptop'],
-        message: 'Please choose Yes or No for laptop requirement',
+        message: 'Please choose Yes or No for further allowances',
       });
     }
 
@@ -94,7 +94,7 @@ export const registrationSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['laptopJustification'],
-        message: 'Please provide a justification for the laptop requirement',
+        message: 'Please provide details about the required allowances',
       });
     }
 

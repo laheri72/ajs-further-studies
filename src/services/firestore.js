@@ -1,19 +1,22 @@
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { uploadCloudinaryImage } from './cloudinary';
+import { deleteCloudinaryByToken, uploadCloudinaryImage } from './cloudinary';
 import {
   isAutoApprovedRegistration,
   isValidStudentEmail,
@@ -84,18 +87,37 @@ export async function getStudentQualifications(uid) {
   return snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
 }
 
-export async function saveStudentQualification(uid, values, qualificationId = '') {
+export async function saveStudentQualification(uid, user, values, proofFile = null, qualificationId = '') {
   const qualificationRef = qualificationId
     ? doc(db, 'students', uid, 'qualifications', qualificationId)
     : doc(collection(db, 'students', uid, 'qualifications'));
+    
+  let proofUpload = null;
+  if (proofFile) {
+    proofUpload = await uploadCloudinaryImage(proofFile, 'Unable to upload proof image.');
+  }
+
   const payload = {
     title: String(values.title || '').trim(),
     institute: String(values.institute || '').trim(),
     yearObtained: String(values.yearObtained || '').trim(),
     grade: String(values.grade || '').trim(),
+    percentage: values.percentage ? Number(values.percentage) : null,
     notes: String(values.notes || '').trim(),
+    studentName: user.displayName || user.fullName || '',
+    studentEmail: user.email,
+    trNo: user.trNo || '',
     updatedAt: serverTimestamp(),
   };
+
+  if (proofUpload) {
+    payload.proofUrl = proofUpload.proofUrl;
+    payload.proofPreviewUrl = proofUpload.previewUrl;
+    payload.proofPublicId = proofUpload.publicId;
+    payload.proofAssetId = proofUpload.assetId;
+    payload.proofDeleteToken = proofUpload.deleteToken;
+    payload.format = proofUpload.format;
+  }
 
   if (!payload.title) {
     throw new Error('Qualification title is required.');
@@ -105,7 +127,7 @@ export async function saveStudentQualification(uid, values, qualificationId = ''
     qualificationRef,
     {
       ...payload,
-      ...(qualificationId ? {} : { createdAt: serverTimestamp() }),
+      ...(qualificationId ? {} : { createdAt: serverTimestamp(), status: 'pending', adminNotes: '' }),
     },
     { merge: true },
   );
@@ -114,7 +136,57 @@ export async function saveStudentQualification(uid, values, qualificationId = ''
 }
 
 export async function deleteStudentQualification(uid, qualificationId) {
-  await deleteDoc(doc(db, 'students', uid, 'qualifications', qualificationId));
+  const ref = doc(db, 'students', uid, 'qualifications', qualificationId);
+  const snapshot = await getDoc(ref);
+  
+  if (snapshot.exists()) {
+    const data = snapshot.data();
+    if (data.proofDeleteToken) {
+      await deleteCloudinaryByToken(data.proofDeleteToken).catch(() => null);
+    }
+  }
+  
+  await deleteDoc(ref);
+}
+
+export function subscribePendingResults(onChange, onError) {
+  return onSnapshot(
+    query(collectionGroup(db, 'qualifications'), where('status', '==', 'pending')),
+    (snapshot) => {
+      const results = snapshot.docs.map((entry) => ({
+        id: entry.id,
+        studentId: entry.ref.parent.parent?.id || 'unknown',
+        ...entry.data(),
+      }));
+      results.sort((left, right) => (right.createdAt?.seconds || 0) - (left.createdAt?.seconds || 0));
+      onChange(results);
+    },
+    onError,
+  );
+}
+
+export function subscribeAllResults(onChange, onError) {
+  return onSnapshot(
+    query(collectionGroup(db, 'qualifications')),
+    (snapshot) => {
+      const results = snapshot.docs.map((entry) => ({
+        id: entry.id,
+        studentId: entry.ref.parent.parent?.id || 'unknown',
+        ...entry.data(),
+      }));
+      results.sort((left, right) => (right.createdAt?.seconds || 0) - (left.createdAt?.seconds || 0));
+      onChange(results);
+    },
+    onError,
+  );
+}
+
+export async function updateResultStatus(studentId, resultId, status, adminNotes) {
+  await updateDoc(doc(db, 'students', studentId, 'qualifications', resultId), {
+    status,
+    adminNotes: String(adminNotes || '').trim(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function getExamProof(uid) {

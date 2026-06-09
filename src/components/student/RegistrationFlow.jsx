@@ -3,7 +3,6 @@ import { CheckCircle2, FileText, Loader2, Lock, Save, Upload } from 'lucide-reac
 import { useEffect, useRef, useState } from 'react';
 import { StatusBadge } from '../StatusBadge';
 import {
-  LAPTOP_JUSTIFICATIONS,
   MIQAAT_EVENTS,
   MONTHS,
   NEXT_QUALIFICATION_OPTIONS,
@@ -225,7 +224,7 @@ function RegistrationSummary({ values, stageLabels, examProof }) {
     ['Miqaat / Jamea Clash', values.clashWithMiqaat ? 'Yes' : 'No'],
     ['Clash Events', values.clashEvents.join(', ')],
     ['Clash Details', values.clashDetails],
-    ['Laptop Requirement', values.needsLaptop === null ? '' : values.needsLaptop ? `Yes - ${LAPTOP_JUSTIFICATIONS.find((j) => j.value === values.laptopJustification)?.label || values.laptopJustification}` : 'No'],
+    ['Further Allowances', values.needsLaptop === null ? '' : values.needsLaptop ? `Yes - ${values.laptopJustification}` : 'No'],
     ['Exam Proof', examProofStateLabel(examProof?.state)],
     ['Additional Notes', values.additionalNotes],
   ].filter(([, value]) => value);
@@ -487,8 +486,8 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
 
         <div className="sub-question">
           <div className="sub-question-header">
-            <span>Laptop Requirement</span>
-            <p>Do you require a laptop for your further studies this year?</p>
+            <span>Further Allowances</span>
+            <p>Would the course require any further allowances such as laptop raza/ study leave? (Must be exceptional circumstances)</p>
           </div>
           <div className="split-choice">
             {[true, false].map((answer) => (
@@ -508,22 +507,17 @@ function StepContent({ step, values, errors, examProof, stageLabels, editable, p
           {values.needsLaptop ? (
             <div className="sub-question">
               <div className="sub-question-header">
-                <span>Justification</span>
-                <p>Select the primary reason for your laptop requirement.</p>
+                <span>Details & Justification</span>
+                <p>Please note JHS policy places location restrictions (usually only the library) on laptop use for students from 1-7.</p>
               </div>
-              <div className="stack">
-                {LAPTOP_JUSTIFICATIONS.map((justification) => (
-                  <button
-                    className={`choice-card left sub-choice ${values.laptopJustification === justification.value ? 'selected' : ''} ${errors.laptopJustification ? 'is-invalid' : ''}`}
-                    type="button"
-                    disabled={!editable}
-                    onClick={() => patch({ laptopJustification: justification.value })}
-                    key={justification.value}
-                  >
-                    {justification.label}
-                  </button>
-                ))}
-              </div>
+              <textarea
+                placeholder="Please provide details about the required allowances..."
+                value={values.laptopJustification}
+                disabled={!editable}
+                onChange={(e) => patch({ laptopJustification: e.target.value })}
+                className={errors.laptopJustification ? 'is-invalid' : ''}
+                rows={3}
+              />
               {errors.laptopJustification ? <span className="field-error">{errors.laptopJustification}</span> : null}
             </div>
           ) : null}
