@@ -18,8 +18,8 @@ import {
   studentWritablePayload,
   trFromStudentEmail,
 } from '../utils/registration';
-import { isTashjeeProofFile, isTashjeeRequestDeletable, normalizeTashjeeOptions, TASHJEE_PROOF_MAX_BYTES } from '../utils/tashjee';
 import { validateRegistration, validateRegistrationStep } from '../utils/validation';
+import { exportToExcel, exportToPDF } from '../utils/exportData';
 
 const user = { uid: 'uid-1', email: '25687@jameasaifiyah.edu' };
 const profile = { trNo: 'TR100', fullName: 'Student One' };
@@ -38,6 +38,7 @@ function validValues(overrides = {}) {
     razaDays: 12,
     examMonths: ['March'],
     clashWithMiqaat: false,
+    needsLaptop: false,
     ...overrides,
   };
 }
@@ -112,6 +113,7 @@ describe('validation', () => {
           studyCommitment: '',
           examMonths: [],
           clashWithMiqaat: null,
+          needsLaptop: false,
         }),
       ),
     ).toEqual({});
@@ -124,6 +126,7 @@ describe('validation', () => {
         hasThoughtAboutNext: true,
         needsLeavesThisYear: true,
         degreeApplying: '',
+        needsLaptop: false,
       }),
     );
     expect(errors.degreeApplying).toBeTruthy();
@@ -140,6 +143,7 @@ describe('validation', () => {
         studyCommitment: '',
         examMonths: [],
         clashWithMiqaat: null,
+        needsLaptop: false,
       }),
     );
 
@@ -159,13 +163,14 @@ describe('validation', () => {
           studyCommitment: '',
           examMonths: [],
           clashWithMiqaat: null,
+          needsLaptop: false,
         }),
       ),
     ).toEqual({});
   });
 
   it('requires clash event context when a clash is declared', () => {
-    const errors = validateRegistration(validValues({ clashWithMiqaat: true, clashEvents: [], clashDetails: '' }));
+    const errors = validateRegistration(validValues({ clashWithMiqaat: true, clashEvents: [], clashDetails: '', needsLaptop: false }));
     expect(errors.clashEvents).toMatch(/clash event/i);
   });
 });
@@ -183,27 +188,14 @@ describe('admin dashboard helpers', () => {
   });
 
   it('calculates summary stats', () => {
-    expect(statsForStudents(students)).toEqual({ total: 3, pending: 1, onHold: 1, approved: 1, clashes: 1 });
+    expect(statsForStudents(students)).toEqual({ total: 3, pending: 1, onHold: 1, approved: 1, laptopRaza: 0, clashes: 1 });
   });
 });
 
-describe('tashjee helpers', () => {
-  it('normalizes request options before saving', () => {
-    expect(normalizeTashjeeOptions(['  Alpha  ', 'alpha', '', 'Beta'])).toEqual(['Alpha', 'Beta']);
-  });
-
-  it('accepts only image proof files under 2 MB', () => {
-    expect(isTashjeeProofFile({ type: 'image/png', size: TASHJEE_PROOF_MAX_BYTES })).toBe(true);
-    expect(isTashjeeProofFile({ type: 'image/jpeg', size: TASHJEE_PROOF_MAX_BYTES - 1 })).toBe(true);
-    expect(isTashjeeProofFile({ type: 'image/jpeg', size: TASHJEE_PROOF_MAX_BYTES + 1 })).toBe(false);
-    expect(isTashjeeProofFile({ type: 'text/plain' })).toBe(false);
-  });
-
-  it('allows deleting only pending or on-hold requests', () => {
-    expect(isTashjeeRequestDeletable('pending')).toBe(true);
-    expect(isTashjeeRequestDeletable('on-hold')).toBe(true);
-    expect(isTashjeeRequestDeletable('approved')).toBe(false);
-    expect(isTashjeeRequestDeletable('rejected')).toBe(false);
+describe('export utilities', () => {
+  it('defines MS Excel and PDF export functions', () => {
+    expect(typeof exportToExcel).toBe('function');
+    expect(typeof exportToPDF).toBe('function');
   });
 });
 

@@ -1,4 +1,24 @@
-import { AlertCircle, AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock, FileCheck2, Laptop, Search, ShieldAlert, TicketCheck, Users, ShieldCheck } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  FileCheck2,
+  FileSpreadsheet,
+  FileText,
+  Laptop,
+  RotateCcw,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  TicketCheck,
+  Users,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
@@ -9,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAllStudents, getExamProof } from '../services/firestore';
 import { statsForStudents } from '../utils/registration';
 import { examProofStateLabel } from '../utils/proofUpload';
+import { exportToExcel, exportToPDF } from '../utils/exportData';
 import { ResultsAdminPanel } from '../components/admin/ResultsAdminPanel';
 import { AdminAccessPanel } from '../components/admin/AdminAccessPanel';
 import { ReviewModal } from '../components/admin/ReviewModal';
@@ -50,10 +71,16 @@ function AdminDashboard() {
   const [status, setStatus] = useState('all');
   const [proofFilter, setProofFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('submittedAt');
+  const [sortDir, setSortDir] = useState('desc');
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
+
   const tabParam = searchParams.get('tab');
-  const activeTab = tabParam === 'records' || tabParam === 'results' || (tabParam === 'access' && canManageAdmins) ? tabParam : 'analysis';
+  const activeTab =
+    tabParam === 'records' || tabParam === 'results' || (tabParam === 'access' && canManageAdmins)
+      ? tabParam
+      : 'analysis';
 
   async function load() {
     setLoading(true);
@@ -78,48 +105,175 @@ function AdminDashboard() {
     load();
   }, []);
 
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function resetFilters() {
+    setQuery('');
+    setStatus('all');
+    setProofFilter('all');
+    setRiskFilter('all');
+    setSortKey('submittedAt');
+    setSortDir('desc');
+  }
+
   const filtered = useMemo(
     () => filterStudentRecords(students, query, status, proofFilter, riskFilter),
     [students, query, status, proofFilter, riskFilter],
   );
+
+  const sortedStudents = useMemo(() => {
+    return [...filtered].sort((left, right) => {
+      let valA = left[sortKey];
+      let valB = right[sortKey];
+
+      if (sortKey === 'examProof') {
+        valA = left.examProof?.state || 'missing';
+        valB = right.examProof?.state || 'missing';
+      } else if (sortKey === 'razaDays') {
+        valA = Number(left.razaDays || 0);
+        valB = Number(right.razaDays || 0);
+      } else if (sortKey === 'submittedAt') {
+        valA = left.submittedAt?.seconds || 0;
+        valB = right.submittedAt?.seconds || 0;
+      } else {
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+      }
+
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filtered, sortKey, sortDir]);
+
   const stats = useMemo(() => statsForStudents(students), [students]);
   const reviewMetrics = useMemo(() => buildReviewMetrics(students), [students]);
-  const eventPressure = useMemo(() => topCounts(students.flatMap((student) => student.clashEvents || []), 5), [students]);
-  const monthPressure = useMemo(() => topCounts(students.flatMap((student) => student.examMonths || []), 6), [students]);
+  const eventPressure = useMemo(
+    () => topCounts(students.flatMap((student) => student.clashEvents || []), 5),
+    [students],
+  );
+  const monthPressure = useMemo(
+    () => topCounts(students.flatMap((student) => student.examMonths || []), 6),
+    [students],
+  );
+
+  function exportRecordsExcel() {
+    const columns = [
+      { key: 'trNo', label: 'TR Number' },
+      { key: 'fullName', label: 'Student Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'degreeApplying', label: 'Degree / Programme' },
+      { key: 'institution', label: 'Institution' },
+      { key: 'studyCommitment', label: 'Study Commitment' },
+      { key: 'razaDays', label: 'Raza Days' },
+      { key: 'examMonths', label: 'Exam Months' },
+      { key: 'clashWithMiqaat', label: 'Miqaat Clash' },
+      { key: 'clashEvents', label: 'Clash Events' },
+      { key: 'clashDetails', label: 'Clash Details' },
+      { key: 'needsLaptop', label: 'Further Allowances' },
+      { key: 'laptopJustification', label: 'Allowance Details' },
+      { key: 'proofState', label: 'Hall Ticket State' },
+      { key: 'status', label: 'Status' },
+      { key: 'submittedAtDate', label: 'Submitted Date' },
+      { key: 'adminNotes', label: 'Idara Notes' },
+    ];
+
+    const exportRows = sortedStudents.map((s) => ({
+      ...s,
+      clashWithMiqaat: s.clashWithMiqaat ? 'Yes' : 'No',
+      needsLaptop: s.needsLaptop ? 'Yes' : 'No',
+      proofState: examProofStateLabel(s.examProof?.state),
+      submittedAtDate: s.submittedAt?.seconds
+        ? new Date(s.submittedAt.seconds * 1000).toLocaleDateString()
+        : '-',
+    }));
+
+    exportToExcel('External_Examinations_Student_Records', 'Student Records', columns, exportRows);
+  }
+
+  function exportRecordsPDF() {
+    const columns = [
+      { key: 'trNo', label: 'TR' },
+      { key: 'fullName', label: 'Student Name' },
+      { key: 'degreeApplying', label: 'Programme' },
+      { key: 'institution', label: 'Institution' },
+      { key: 'razaDays', label: 'Raza Days' },
+      { key: 'proofState', label: 'Hall Ticket' },
+      { key: 'status', label: 'Status' },
+      { key: 'submittedAtDate', label: 'Submitted' },
+    ];
+
+    const exportRows = sortedStudents.map((s) => ({
+      ...s,
+      razaDays: s.razaDays ? `${s.razaDays} days` : '-',
+      proofState: examProofStateLabel(s.examProof?.state),
+      submittedAtDate: s.submittedAt?.seconds
+        ? new Date(s.submittedAt.seconds * 1000).toLocaleDateString()
+        : '-',
+    }));
+
+    exportToPDF('External_Examinations_Student_Records', 'Student Records Administrative Audit Report', columns, exportRows);
+  }
+
+  const hasActiveFilters =
+    query.trim() || status !== 'all' || proofFilter !== 'all' || riskFilter !== 'all' || sortKey !== 'submittedAt';
 
   return (
-    <AppShell title="Admin Dashboard">
+    <AppShell title="External Examinations Portal">
       <main className="container wide admin-space">
         <header className="page-heading admin-heading">
           <div>
-            <p className="eyebrow">Further Studies</p>
-            <h1>Admin Command Center</h1>
-            <p>Monitor analytics, verify credentials, and manage student records.</p>
+            <p className="eyebrow">Imtehanaat-Ukhra</p>
+            <h1>External Examinations — Admin Command Center</h1>
+            <p>Institutional management dashboard to monitor analytics, verify hall tickets, and govern raza approvals.</p>
           </div>
           <div className="admin-header-actions">
             <button className="outline-button" type="button" onClick={load}>
-              Refresh
+              Refresh Data
             </button>
           </div>
         </header>
 
         <nav className="dashboard-tabs admin-tabs" aria-label="Admin dashboard sections">
-          <button className={activeTab === 'analysis' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'analysis' }, { replace: true })}>
+          <button
+            className={activeTab === 'analysis' ? 'active' : ''}
+            type="button"
+            onClick={() => setSearchParams({ tab: 'analysis' }, { replace: true })}
+          >
             <BarChart3 size={16} />
-            Analysis
+            Analysis & Analytics
           </button>
-          <button className={activeTab === 'records' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'records' }, { replace: true })}>
+          <button
+            className={activeTab === 'records' ? 'active' : ''}
+            type="button"
+            onClick={() => setSearchParams({ tab: 'records' }, { replace: true })}
+          >
             <Users size={16} />
-            Student Records
+            Student Records ({students.length})
           </button>
-          <button className={activeTab === 'results' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'results' }, { replace: true })}>
+          <button
+            className={activeTab === 'results' ? 'active' : ''}
+            type="button"
+            onClick={() => setSearchParams({ tab: 'results' }, { replace: true })}
+          >
             <FileCheck2 size={16} />
             Results Management
           </button>
           {canManageAdmins ? (
-            <button className={activeTab === 'access' ? 'active' : ''} type="button" onClick={() => setSearchParams({ tab: 'access' }, { replace: true })}>
+            <button
+              className={activeTab === 'access' ? 'active' : ''}
+              type="button"
+              onClick={() => setSearchParams({ tab: 'access' }, { replace: true })}
+            >
               <ShieldCheck size={16} />
-              Admin Access
+              Admin Governance
             </button>
           ) : null}
         </nav>
@@ -132,16 +286,16 @@ function AdminDashboard() {
               <section className="stats-grid">
                 <ReviewMetricCard
                   icon={<Users size={19} />}
-                  label="Total Students"
+                  label="Total Registrations"
                   value={stats.total}
-                  caption="Total registered students in the system"
+                  caption="Total registered students in system"
                   tone="gold"
                 />
                 <ReviewMetricCard
                   icon={<Clock size={19} />}
-                  label="Pending"
+                  label="Pending Review"
                   value={stats.pending}
-                  caption="Applications waiting for Idara review"
+                  caption="Applications awaiting Idara action"
                   tone="warning"
                 />
                 <ReviewMetricCard
@@ -153,7 +307,7 @@ function AdminDashboard() {
                 />
                 <ReviewMetricCard
                   icon={<CheckCircle2 size={19} />}
-                  label="Approved"
+                  label="Approved & Raza Granted"
                   value={stats.approved}
                   caption="Successfully finalized and locked records"
                   tone="success"
@@ -162,7 +316,7 @@ function AdminDashboard() {
                   icon={<Laptop size={19} />}
                   label="Further Allowances"
                   value={stats.laptopRaza}
-                  caption="Students requesting further allowances"
+                  caption="Students requesting laptop/allowance raza"
                   tone="warning"
                 />
                 <ReviewMetricCard
@@ -216,56 +370,78 @@ function AdminDashboard() {
             <div className="empty-state">Loading student records...</div>
           ) : (
             <>
-              <section className="admin-tools">
-                <label className="search-box">
-                  <Search size={17} />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by TR, name, email, degree, institution"
-                  />
-                </label>
-                <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="on-hold">On Hold</option>
-                  <option value="approved">Approved</option>
-                </select>
-                <select value={proofFilter} onChange={(event) => setProofFilter(event.target.value)}>
-                  <option value="all">All Proof States</option>
-                  <option value="uploaded">Hall Ticket Uploaded</option>
-                  <option value="not_generated_yet">Not Generated Yet</option>
-                  <option value="missing">Proof Missing</option>
-                </select>
-                <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
-                  <option value="all">All Review Focus</option>
-                  <option value="needs-review">Needs Review</option>
-                  <option value="clash">Clash Declared</option>
-                  <option value="high-leave">High Leave Days</option>
-                </select>
+              <section className="admin-tools-enterprise">
+                <div className="admin-tools-filters">
+                  <label className="search-box">
+                    <Search size={17} />
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search by TR, name, email, degree, institution..."
+                    />
+                  </label>
+                  <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="on-hold">On Hold</option>
+                    <option value="approved">Approved</option>
+                  </select>
+                  <select value={proofFilter} onChange={(event) => setProofFilter(event.target.value)}>
+                    <option value="all">All Proof States</option>
+                    <option value="uploaded">Hall Ticket Uploaded</option>
+                    <option value="not_generated_yet">Not Generated Yet</option>
+                    <option value="missing">Proof Missing</option>
+                  </select>
+                  <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
+                    <option value="all">All Review Focus</option>
+                    <option value="needs-review">Needs Review</option>
+                    <option value="clash">Clash Declared</option>
+                    <option value="high-leave">High Leave Days</option>
+                  </select>
+                </div>
+
+                <div className="admin-tools-actions">
+                  <span className="record-count-badge">
+                    Showing <strong>{sortedStudents.length}</strong> of {students.length} records
+                  </span>
+                  <button className="gold-button small" type="button" onClick={exportRecordsExcel} title="Export current dataset to MS Excel (.xlsx)">
+                    <FileSpreadsheet size={15} />
+                    Export Excel (.xlsx)
+                  </button>
+                  <button className="outline-button small" type="button" onClick={exportRecordsPDF} title="Export current dataset to PDF report (.pdf)">
+                    <FileText size={15} />
+                    Export PDF (.pdf)
+                  </button>
+                  {hasActiveFilters ? (
+                    <button className="outline-button small danger-pill" type="button" onClick={resetFilters} title="Reset search & filters">
+                      <RotateCcw size={14} />
+                      Reset
+                    </button>
+                  ) : null}
+                </div>
               </section>
 
               {error ? <div className="notice danger">{error}</div> : null}
 
               <section className="table-wrap">
-                {filtered.length ? (
+                {sortedStudents.length ? (
                   <table>
                     <thead>
                       <tr>
-                        <th>TR</th>
-                        <th>Student</th>
+                        <SortableTh label="TR" columnKey="trNo" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                        <SortableTh label="Student" columnKey="fullName" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                         <th>Review Focus</th>
-                        <th>Hall Ticket</th>
-                        <th>Leave Days</th>
-                        <th>Degree</th>
+                        <SortableTh label="Hall Ticket" columnKey="examProof" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                        <SortableTh label="Raza Days" columnKey="razaDays" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                        <SortableTh label="Degree" columnKey="degreeApplying" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                         <th>Exam Months</th>
                         <th>Clash Events</th>
-                        <th>Status</th>
+                        <SortableTh label="Status" columnKey="status" currentSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((student) => (
+                      {sortedStudents.map((student) => (
                         <tr key={student.id}>
                           <td className="gold-text">{student.trNo}</td>
                           <td>
@@ -301,7 +477,7 @@ function AdminDashboard() {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="empty-state">{students.length ? 'No records match your search.' : 'No student registrations yet.'}</div>
+                  <div className="empty-state">{students.length ? 'No records match your search filter.' : 'No student registrations yet.'}</div>
                 )}
               </section>
             </>
@@ -328,6 +504,22 @@ function AdminDashboard() {
         />
       ) : null}
     </AppShell>
+  );
+}
+
+function SortableTh({ label, columnKey, currentSortKey, sortDir, onSort }) {
+  const isSorted = currentSortKey === columnKey;
+  return (
+    <th className="sortable-th" onClick={() => onSort(columnKey)}>
+      <button className="sort-th-button" type="button">
+        <span>{label}</span>
+        {isSorted ? (
+          sortDir === 'asc' ? <ArrowUp size={14} className="sort-icon active" /> : <ArrowDown size={14} className="sort-icon active" />
+        ) : (
+          <ArrowUpDown size={13} className="sort-icon muted" />
+        )}
+      </button>
+    </th>
   );
 }
 
@@ -451,7 +643,9 @@ function filterStudentRecords(students, query, status, proofFilter, riskFilter) 
 
 function buildReviewMetrics(students) {
   const proofUploaded = students.filter((student) => student.examProof?.state === 'uploaded').length;
-  const proofMissing = students.filter((student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet').length;
+  const proofMissing = students.filter(
+    (student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet',
+  ).length;
   const pendingStudents = students.filter((student) => student.status === 'pending');
   const clashStudents = students.filter((student) => student.clashWithMiqaat);
 
@@ -459,7 +653,9 @@ function buildReviewMetrics(students) {
     proofUploaded,
     pendingProofUploaded: pendingStudents.filter((student) => student.examProof?.state === 'uploaded').length,
     proofMissing,
-    pendingProofMissing: pendingStudents.filter((student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet').length,
+    pendingProofMissing: pendingStudents.filter(
+      (student) => !student.examProof?.state || student.examProof?.state === 'not_generated_yet',
+    ).length,
     totalLeaveDays: students.reduce((sum, student) => sum + Number(student.razaDays || 0), 0),
     highLeaveRequests: students.filter((student) => Number(student.razaDays || 0) >= 10).length,
     clashCount: clashStudents.length,

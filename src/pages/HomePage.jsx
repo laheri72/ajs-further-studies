@@ -5,17 +5,17 @@ export function HomePage() {
   return (
     <main className="home">
       <section className="home-inner fade-up">
-        <div className="home-mark">FS</div>
-        <h1>Further Studies Portal</h1>
+        <div className="home-mark">EE</div>
+        <h1>External Examinations Portal</h1>
         <p>
-          A secure Google-authenticated portal for recording academic journeys beyond Jamea,
+          Imtehanaat-Ukhra — An institutional portal for registering external examination plans beyond Jamea,
           raza coordination, and Idara review.
         </p>
         <div className="entry-grid">
           <Link className="entry-card" to="/student">
             <GraduationCap size={30} />
             <h2>Student Portal</h2>
-            <p>Register further-studies details, preserve your draft, and return to view raza status.</p>
+            <p>Register external examination details, preserve your draft, and view raza status.</p>
             <span>
               Enter Student Portal <ArrowRight size={16} />
             </span>

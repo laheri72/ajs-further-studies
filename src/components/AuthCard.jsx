@@ -11,13 +11,13 @@ export function AuthCard({ role }) {
     <div className="auth-page">
       <main className="auth-layout">
         <section className="auth-card fade-up">
-          <div className="auth-badge">{isAdmin ? <ShieldCheck size={26} /> : 'FS'}</div>
+          <div className="auth-badge">{isAdmin ? <ShieldCheck size={26} /> : 'EE'}</div>
           <p className="eyebrow">{isAdmin ? 'Idara Access' : 'Student Access'}</p>
-          <h1>{isAdmin ? 'Admin Portal' : 'Further Studies Portal'}</h1>
+          <h1>{isAdmin ? 'Admin Command Center' : 'External Examinations Portal'}</h1>
           <p>
             {isAdmin
-              ? 'Authorised Idara personnel may sign in to review student records and manage raza status.'
-              : 'Sign in with your official Jamea EDU  account to register further-studies details and view your raza status.'}
+              ? 'Authorised Idara personnel may sign in to review external examination records and manage raza status.'
+              : 'Sign in with your official Jamea EDU account to register external examination details and view your raza status.'}
           </p>
           <button
             className="google-button"

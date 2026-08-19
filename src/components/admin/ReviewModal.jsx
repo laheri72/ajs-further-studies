@@ -1,7 +1,8 @@
-import { AlertCircle, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { clearStudentRegistration, getExamProof, getStudentQualifications, updateStudentReview } from '../../services/firestore';
 import { examProofStateLabel } from '../../utils/proofUpload';
+
 export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) {
   const [status, setStatus] = useState(['pending', 'on-hold', 'approved'].includes(student.status) ? student.status : 'pending');
   const [adminNotes, setAdminNotes] = useState(student.adminNotes || '');
@@ -53,7 +54,7 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
 
   async function clearRegistration() {
     const confirmed = window.confirm(
-      `Permanently clear ${student.fullName || student.email}'s further-studies registration? They will be able to fill the form again from the start.`,
+      `Permanently clear ${student.fullName || student.email}'s registration? They will be able to fill the form again from the start.`,
     );
     if (!confirmed) return;
 
@@ -73,7 +74,7 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
         <header className="modal-header">
           <div>
-            <p className="eyebrow">Review Record</p>
+            <p className="eyebrow">Institutional Review</p>
             <h2 id="review-title">{student.fullName}</h2>
             <p>{student.trNo} · {student.email}</p>
           </div>
@@ -149,23 +150,36 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
           </div>
         </div>
 
-        <div className="split-choice modal-choice">
-          {['pending', 'on-hold', 'approved'].map((nextStatus) => (
-            <button
-              className={`choice-card ${status === nextStatus ? 'selected' : ''}`}
-              type="button"
-              onClick={() => setStatus(nextStatus)}
-              key={nextStatus}
-            >
-              {nextStatus === 'on-hold' ? <AlertCircle size={16} /> : <ShieldCheck size={16} />}
-              {nextStatus === 'approved' ? 'Approved' : nextStatus === 'on-hold' ? 'On Hold' : 'Pending'}
-            </button>
-          ))}
+        <div className="cta-decision-group">
+          <button
+            className={`cta-decision cta-pending ${status === 'pending' ? 'selected' : ''}`}
+            type="button"
+            onClick={() => setStatus('pending')}
+          >
+            <Clock size={17} />
+            <span>Pending</span>
+          </button>
+          <button
+            className={`cta-decision cta-on-hold ${status === 'on-hold' ? 'selected' : ''}`}
+            type="button"
+            onClick={() => setStatus('on-hold')}
+          >
+            <AlertCircle size={17} />
+            <span>On Hold</span>
+          </button>
+          <button
+            className={`cta-decision cta-approved ${status === 'approved' ? 'selected' : ''}`}
+            type="button"
+            onClick={() => setStatus('approved')}
+          >
+            <CheckCircle2 size={17} />
+            <span>Approved</span>
+          </button>
         </div>
 
         <label>
-          Notes visible to student {status === 'on-hold' ? '(required)' : ''}
-          <textarea value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} />
+          Notes visible to student {status === 'on-hold' ? '(required for hold status)' : ''}
+          <textarea value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} placeholder="Provide feedback or guidance for the student..." />
         </label>
 
         {error ? <div className="notice danger">{error}</div> : null}
@@ -182,7 +196,8 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
               Cancel
             </button>
             <button className="gold-button" type="button" onClick={save} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Review'}
+              {saving ? <Loader2 size={16} className="spin-icon" /> : <ShieldCheck size={16} />}
+              {saving ? 'Saving...' : 'Save Decision'}
             </button>
           </div>
         </div>

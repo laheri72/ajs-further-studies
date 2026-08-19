@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Footer } from './Footer';
 
-export function AppShell({ children, title = 'Further Studies Portal' }) {
+export function AppShell({ children, title = 'External Examinations Portal' }) {
   const { user, profile, signOutUser, isAdmin } = useAuth();
 
   return (
     <div className="page-shell">
       <nav className="topbar">
         <Link className="brand" to="/">
-          <span className="brand-mark">FS</span>
+          <span className="brand-mark">EE</span>
           <span>{title}</span>
         </Link>
         {user ? (
