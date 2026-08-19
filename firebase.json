@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "external-examination-portal",
     "public": "dist",
     "ignore": [
       "firebase.json",

@@ -91,7 +91,7 @@ export function RegistrationTab({
       <StatusPanel record={record} values={values} stageLabels={stageLabels} examProof={examProof} onStart={scrollToForm} />
       <div className="section-heading registration-heading" ref={formRef}>
         <p className="eyebrow">{record?.status === 'on-hold' ? 'Clarification Needed' : 'Student Registration'}</p>
-        <h2>{record?.status === 'on-hold' ? 'Update and Resubmit' : 'Further Studies Registration'}</h2>
+        <h2>{record?.status === 'on-hold' ? 'Update and Resubmit' : 'External Examinations Registration'}</h2>
         <p>
           {record?.status === 'on-hold'
             ? 'Please update the requested details and resubmit so the Idara can continue the review.'
@@ -173,7 +173,7 @@ function StatusPanel({ record, values, stageLabels, examProof, onStart }) {
               ? 'The Idara needs clarification before continuing the review. Please read the note, update your registration, and resubmit.'
               : pending
                 ? 'Your details are recorded and waiting for Idara review.'
-                : 'Complete the registration so the Idara can review your further-studies details.'}
+                : 'Complete the registration so the Idara can review your external examination details.'}
         </p>
       </div>
       <div className="status-badge-container">

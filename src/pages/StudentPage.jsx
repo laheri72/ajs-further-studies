@@ -152,8 +152,8 @@ function StudentDashboard({ isAdmin }) {
         <header className="page-heading dashboard-heading">
           <div>
             <p className="eyebrow">Student Dashboard</p>
-            <h1>Further Studies Portal</h1>
-            <p>Track your raza status and manage your further-studies registration from one place.</p>
+            <h1>External Examinations Portal</h1>
+            <p>Track your raza status and manage your external examinations registration from one place.</p>
           </div>
           {isAdmin ? (
             <Link className="outline-button" to="/admin" title="Go to admin dashboard">
