@@ -1,7 +1,9 @@
-import { AlertCircle, CheckCircle2, Clock, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, ExternalLink, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { StatusBadge } from '../StatusBadge';
 import { clearStudentRegistration, getExamProof, getStudentQualifications, updateStudentReview } from '../../services/firestore';
 import { examProofStateLabel } from '../../utils/proofUpload';
+import { isAutoApprovedRecord } from '../../utils/registration';
 
 export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) {
   const [status, setStatus] = useState(['pending', 'on-hold', 'approved'].includes(student.status) ? student.status : 'pending');
@@ -78,9 +80,12 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
             <h2 id="review-title">{student.fullName}</h2>
             <p>{student.trNo} · {student.email}</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close review modal">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <StatusBadge status={student.status} isAuto={isAutoApprovedRecord(student)} />
+            <button className="icon-button" type="button" onClick={onClose} aria-label="Close review modal">
+              <X size={18} />
+            </button>
+          </div>
         </header>
 
         <div className="detail-grid">
@@ -139,9 +144,27 @@ export function ReviewModal({ student, reviewer, onClose, onSaved, onCleared }) 
               </strong>
             ) : examProof?.state === 'uploaded' ? (
               <div className="proof-preview-wrap">
-                <img className="proof-preview" src={examProof.proofPreviewUrl || examProof.proofUrl} alt="Hall ticket proof preview" />
-                <a href={examProof.proofPreviewUrl || examProof.proofUrl} target="_blank" rel="noreferrer">
-                  Open hall ticket image
+                <a
+                  href={examProof.proofPreviewUrl || examProof.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="proof-preview-link"
+                  title="Click to open full resolution hall ticket image"
+                >
+                  <img
+                    className="proof-preview"
+                    src={examProof.proofPreviewUrl || examProof.proofUrl}
+                    alt="Hall ticket proof preview"
+                  />
+                </a>
+                <a
+                  href={examProof.proofPreviewUrl || examProof.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="proof-preview-action"
+                >
+                  <span>Inspect Full Resolution Hall Ticket</span>
+                  <ExternalLink size={14} />
                 </a>
               </div>
             ) : (

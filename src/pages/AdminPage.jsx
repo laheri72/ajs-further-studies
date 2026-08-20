@@ -26,8 +26,8 @@ import { AppShell } from '../components/AppShell';
 import { Loading } from '../components/Loading';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { getAllStudents, getExamProof } from '../services/firestore';
-import { statsForStudents } from '../utils/registration';
+import { getAllStudents, getExamProof, subscribeAllResults } from '../services/firestore';
+import { isAutoApprovedRecord, isManuallyApprovedRecord, statsForStudents } from '../utils/registration';
 import { examProofStateLabel } from '../utils/proofUpload';
 import { exportToExcel, exportToPDF } from '../utils/exportData';
 import { ResultsAdminPanel } from '../components/admin/ResultsAdminPanel';
@@ -75,6 +75,18 @@ function AdminDashboard() {
   const [sortDir, setSortDir] = useState('desc');
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
+  const [pendingResultsCount, setPendingResultsCount] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAllResults(
+      (data) => {
+        const count = data.filter((r) => !r.status || r.status === 'pending').length;
+        setPendingResultsCount(count);
+      },
+      () => setPendingResultsCount(0),
+    );
+    return () => unsubscribe();
+  }, []);
 
   const tabParam = searchParams.get('tab');
   const activeTab =
@@ -264,7 +276,7 @@ function AdminDashboard() {
             onClick={() => setSearchParams({ tab: 'results' }, { replace: true })}
           >
             <FileCheck2 size={16} />
-            Results Management
+            Results Management ({pendingResultsCount})
           </button>
           {canManageAdmins ? (
             <button
@@ -307,10 +319,17 @@ function AdminDashboard() {
                 />
                 <ReviewMetricCard
                   icon={<CheckCircle2 size={19} />}
-                  label="Approved & Raza Granted"
-                  value={stats.approved}
-                  caption="Successfully finalized and locked records"
+                  label="Approved by Idara"
+                  value={stats.manuallyApproved}
+                  caption="Finalized and approved by Idara reviewers"
                   tone="success"
+                />
+                <ReviewMetricCard
+                  icon={<ShieldCheck size={19} />}
+                  label="Auto-Approved"
+                  value={stats.autoApproved}
+                  caption="System auto-approved (0 Raza / assistance needed)"
+                  tone="gold"
                 />
                 <ReviewMetricCard
                   icon={<Laptop size={19} />}
@@ -384,7 +403,9 @@ function AdminDashboard() {
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
                     <option value="on-hold">On Hold</option>
-                    <option value="approved">Approved</option>
+                    <option value="approved">All Approved</option>
+                    <option value="manually-approved">Approved by Idara</option>
+                    <option value="auto-approved">Auto-Approved (No Raza)</option>
                   </select>
                   <select value={proofFilter} onChange={(event) => setProofFilter(event.target.value)}>
                     <option value="all">All Proof States</option>
@@ -465,7 +486,7 @@ function AdminDashboard() {
                             {student.clashWithMiqaat ? <PillSummary items={student.clashEvents || []} emptyLabel="Details provided" danger /> : '-'}
                           </td>
                           <td>
-                            <StatusBadge status={student.status} />
+                            <StatusBadge status={student.status} isAuto={isAutoApprovedRecord(student)} />
                           </td>
                           <td>
                             <button className="outline-button small" type="button" onClick={() => setSelected(student)}>
@@ -616,7 +637,9 @@ function filterStudentRecords(students, query, status, proofFilter, riskFilter) 
   const q = String(query || '').trim().toLowerCase();
   return students.filter((student) => {
     const proofState = student.examProof?.state || 'missing';
-    const matchesStatus = status === 'all' || student.status === status;
+    let matchesStatus = status === 'all' || student.status === status;
+    if (status === 'auto-approved') matchesStatus = isAutoApprovedRecord(student);
+    if (status === 'manually-approved') matchesStatus = isManuallyApprovedRecord(student);
     const matchesProof = proofFilter === 'all' || proofState === proofFilter;
     const matchesRisk =
       riskFilter === 'all' ||

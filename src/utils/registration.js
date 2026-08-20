@@ -90,10 +90,26 @@ export function isAutoApprovedRegistration(values) {
   );
 }
 
+export function isAutoApprovedRecord(student) {
+  if (!student || student.status !== 'approved') return false;
+  if (student.approvalType === 'auto') return true;
+  if (student.approvalType === 'manual') return false;
+  if (student.reviewedBy) return false;
+  return isAutoApprovedRegistration(student);
+}
+
+export function isManuallyApprovedRecord(student) {
+  if (!student || student.status !== 'approved') return false;
+  return !isAutoApprovedRecord(student);
+}
+
 export function filterStudents(students, query, status) {
   const q = String(query || '').trim().toLowerCase();
   return students.filter((student) => {
-    const matchesStatus = status === 'all' || student.status === status;
+    let matchesStatus = status === 'all' || student.status === status;
+    if (status === 'auto-approved') matchesStatus = isAutoApprovedRecord(student);
+    if (status === 'manually-approved') matchesStatus = isManuallyApprovedRecord(student);
+
     const haystack = [
       student.trNo,
       student.fullName,
@@ -110,11 +126,17 @@ export function filterStudents(students, query, status) {
 }
 
 export function statsForStudents(students) {
+  const approvedRecords = students.filter((student) => student.status === 'approved');
+  const autoApproved = approvedRecords.filter((student) => isAutoApprovedRecord(student)).length;
+  const manuallyApproved = approvedRecords.length - autoApproved;
+
   return {
     total: students.length,
     pending: students.filter((student) => student.status === 'pending').length,
     onHold: students.filter((student) => student.status === 'on-hold').length,
-    approved: students.filter((student) => student.status === 'approved').length,
+    approved: approvedRecords.length,
+    autoApproved,
+    manuallyApproved,
     clashes: students.filter((student) => student.clashWithMiqaat).length,
     laptopRaza: students.filter((student) => student.needsLaptop).length,
   };

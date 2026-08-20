@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   CheckCircle2,
   Clock,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
   Image as ImageIcon,
@@ -134,24 +135,41 @@ export function ResultsAdminPanel() {
 
   return (
     <section className="panel tashjee-panel tashjee-admin-panel">
-      <div className="section-heading tashjee-section-heading">
-        <p className="eyebrow">Academic Records</p>
-        <h2>Results & Qualifications Management</h2>
-        <p>Review student academic results, inspect proof of success certificates, and govern formal approvals.</p>
-      </div>
+      <div className="tashjee-header-block">
+        <div className="section-heading tashjee-section-heading">
+          <p className="eyebrow">Academic Records</p>
+          <h2>Results & Qualifications Management</h2>
+          <p>Review student academic results, inspect proof of success certificates, and govern formal approvals.</p>
+        </div>
 
-      <div className="tashjee-admin-meta" style={{ marginBottom: '2rem' }}>
-        <div className="stat-card gold">
-          <span>Total Submitted</span>
-          <strong>{results.length}</strong>
-        </div>
-        <div className="stat-card warning">
-          <span>Pending Review</span>
-          <strong>{pendingResults.length}</strong>
-        </div>
-        <div className="stat-card success">
-          <span>Approved</span>
-          <strong>{approvedResults.length}</strong>
+        <div className="tashjee-sleek-stats">
+          <div className="sleek-stat-card gold">
+            <div className="sleek-stat-icon">
+              <FileText size={18} />
+            </div>
+            <div className="sleek-stat-content">
+              <span className="sleek-stat-label">Total Submitted</span>
+              <strong className="sleek-stat-value">{results.length}</strong>
+            </div>
+          </div>
+          <div className="sleek-stat-card warning">
+            <div className="sleek-stat-icon">
+              <Clock size={18} />
+            </div>
+            <div className="sleek-stat-content">
+              <span className="sleek-stat-label">Pending Review</span>
+              <strong className="sleek-stat-value">{pendingResults.length}</strong>
+            </div>
+          </div>
+          <div className="sleek-stat-card success">
+            <div className="sleek-stat-icon">
+              <CheckCircle2 size={18} />
+            </div>
+            <div className="sleek-stat-content">
+              <span className="sleek-stat-label">Approved</span>
+              <strong className="sleek-stat-value">{approvedResults.length}</strong>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -362,13 +380,27 @@ function ResultReviewModal({ result, onClose }) {
             <span>Proof Certificate</span>
             {result.proofUrl ? (
               <div className="proof-preview-wrap">
-                <img
-                  className="proof-preview"
-                  src={result.proofPreviewUrl || result.proofUrl}
-                  alt="Result proof preview"
-                />
-                <a href={result.proofPreviewUrl || result.proofUrl} target="_blank" rel="noreferrer">
-                  Open full certificate image
+                <a
+                  href={result.proofPreviewUrl || result.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="proof-preview-link"
+                  title="Click to open full resolution certificate image"
+                >
+                  <img
+                    className="proof-preview"
+                    src={result.proofPreviewUrl || result.proofUrl}
+                    alt="Result proof preview"
+                  />
+                </a>
+                <a
+                  href={result.proofPreviewUrl || result.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="proof-preview-action"
+                >
+                  <span>Inspect Full Resolution Certificate</span>
+                  <ExternalLink size={14} />
                 </a>
               </div>
             ) : (

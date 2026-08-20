@@ -188,7 +188,16 @@ describe('admin dashboard helpers', () => {
   });
 
   it('calculates summary stats', () => {
-    expect(statsForStudents(students)).toEqual({ total: 3, pending: 1, onHold: 1, approved: 1, laptopRaza: 0, clashes: 1 });
+    expect(statsForStudents(students)).toEqual({
+      total: 3,
+      pending: 1,
+      onHold: 1,
+      approved: 1,
+      autoApproved: 0,
+      manuallyApproved: 1,
+      laptopRaza: 0,
+      clashes: 1,
+    });
   });
 });
 

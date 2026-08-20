@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, FileText, Loader2, Lock, Save, Upload } from 'lucide-react';
+import { CheckCircle2, ExternalLink, FileText, Loader2, Lock, Save, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { StatusBadge } from '../StatusBadge';
 import {
@@ -647,12 +647,34 @@ function ExamProofPanel({ editable, examProof, user, isAlreadyPursuing, onExamPr
       <div className="proof-status-row">
         <StatusBadge status={proofUploaded ? 'approved' : examProof?.state === 'not_generated_yet' ? 'pending' : 'not submitted'} />
         <strong>{examProofStateLabel(examProof?.state)}</strong>
-        {proofUploaded ? (
-          <a href={examProof.proofPreviewUrl || examProof.proofUrl} target="_blank" rel="noreferrer">
-            Open hall ticket
-          </a>
-        ) : null}
       </div>
+
+      {proofUploaded ? (
+        <div className="proof-preview-wrap" style={{ marginTop: '12px' }}>
+          <a
+            href={examProof.proofPreviewUrl || examProof.proofUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="proof-preview-link"
+            title="Click to open full resolution hall ticket image"
+          >
+            <img
+              className="proof-preview"
+              src={examProof.proofPreviewUrl || examProof.proofUrl}
+              alt="Uploaded hall ticket preview"
+            />
+          </a>
+          <a
+            href={examProof.proofPreviewUrl || examProof.proofUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="proof-preview-action"
+          >
+            <span>Inspect Full Resolution Hall Ticket</span>
+            <ExternalLink size={14} />
+          </a>
+        </div>
+      ) : null}
 
       {editable ? (
         <>
